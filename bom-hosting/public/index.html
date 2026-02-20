@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>990-00003-C.0 BOM Validation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;min-height:100vh}
+.loading-screen{position:fixed;inset:0;background:#1e293b;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff}
+.loading-screen h2{font-size:20px;margin-bottom:8px}.loading-screen p{font-size:13px;opacity:.7}
+.loading-spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-error{color:#fca5a5;margin-top:12px;font-size:12px;display:none}
+.loading-retry{margin-top:10px;padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;display:none}
+.sync-badge{position:fixed;bottom:16px;right:16px;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;z-index:200;transition:all .3s}
+.sync-badge.connected{background:#dcfce7;color:#16a34a;border:1px solid #86efac}
+.sync-badge.saving{background:#dbeafe;color:#2563eb;border:1px solid #93c5fd}
+.sync-badge.disconnected{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
+.header{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:20px 24px;position:sticky;top:0;z-index:100}
+.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.header h1{font-size:20px;font-weight:700}
+.header .sub{font-size:13px;opacity:.8;margin-top:4px}
+.pct-wrap{display:flex;align-items:center;gap:16px}
+.pct-num{font-size:28px;font-weight:700;text-align:right}
+.pct-label{font-size:11px;opacity:.7;text-align:right}
+.ring{width:60px;height:60px;border-radius:50%;border:3px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center}
+.ring-inner{width:48px;height:48px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.quick-stats{display:flex;gap:16px;margin-top:12px;font-size:12px;flex-wrap:wrap;align-items:center}
+.stat-badge{padding:3px 10px;border-radius:12px}
+.stat-ok{background:rgba(34,197,94,.2)}.stat-warn{background:rgba(234,179,8,.2)}.stat-miss{background:rgba(239,68,68,.2)}
+.summary-btn{margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 14px;border-radius:12px;cursor:pointer;font-size:12px}
+.summary-panel{background:#fff;margin:16px;border-radius:8px;border:1px solid #e2e8f0;padding:20px;display:none}
+.summary-panel.open{display:block}
+.summary-panel h3{font-size:16px;margin-bottom:16px}
+.summary-panel h4{font-size:14px;margin:0 0 8px}
+.s-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px}
+.s-table th{padding:8px 12px;border-bottom:2px solid #e2e8f0;text-align:left}
+.s-table td{padding:6px 12px;border-bottom:1px solid #f1f5f9}
+.tabs{display:flex;overflow-x:auto;gap:4px;padding:12px 16px 0;background:#fff;border-bottom:1px solid #e2e8f0}
+.tab-btn{padding:10px 14px;border:none;border-bottom:3px solid transparent;background:transparent;cursor:pointer;font-size:12px;font-weight:500;color:#64748b;white-space:nowrap;border-radius:6px 6px 0 0;transition:all .15s}
+.tab-btn.active{border-bottom-color:#3b82f6;background:#eff6ff;font-weight:700;color:#1e40af}
+.tab-btn .tab-count{display:block;font-size:10px;font-weight:400;margin-top:2px;opacity:.7}
+.sec-header{padding:16px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+.sec-header h2{font-size:16px;font-weight:600;color:#1e293b}
+.prog-bar-wrap{display:flex;gap:8px;margin-top:8px;align-items:center}
+.prog-bar{flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .3s}
+.prog-label{font-size:12px;color:#64748b;font-weight:600}
+.x3-note{margin-top:8px;padding:6px 12px;background:#dbeafe;border-radius:6px;font-size:12px;color:#1e40af}
+.search-bar{padding:12px 20px 0;background:#fff}
+.search-wrap{position:relative}
+.search-wrap input{width:100%;padding:10px 14px 10px 36px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#f8fafc;transition:border-color .15s}
+.search-wrap input:focus{border-color:#3b82f6;background:#fff}
+.search-wrap .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:#94a3b8;pointer-events:none}
+.search-wrap .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;color:#94a3b8;cursor:pointer;padding:2px 6px;border-radius:4px}
+.search-wrap .search-clear:hover{background:#f1f5f9;color:#64748b}
+.search-count{font-size:11px;color:#64748b;padding:4px 20px 0}
+.part-row.search-hidden{display:none}
+.parts-list{padding:0 16px 8px}
+.part-row{border:1px solid #e2e8f0;border-radius:8px;margin-top:8px;overflow:hidden;transition:background .2s}
+.part-main{display:flex;align-items:center;padding:10px 14px;gap:12px}
+.chk{width:22px;height:22px;border-radius:4px;border:2px solid #cbd5e1;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;font-size:14px;font-weight:700;color:#fff}
+.chk.on{border-color:#16a34a;background:#16a34a}
+.part-info{flex:1;min-width:0}
+.part-desc{font-weight:700;font-size:14px;color:#1e293b;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+.part-meta{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-top:2px}
+.part-item{font-family:monospace;font-size:11px;color:#64748b}
+.part-pn{font-size:13px;color:#475569}
+.part-rev{font-size:11px;background:#f1f5f9;padding:1px 6px;border-radius:4px;color:#475569}
+.part-qty{text-align:center;flex-shrink:0;min-width:50px}
+.part-qty-num{font-size:16px;font-weight:700;color:#1e293b}
+.part-qty-uom{font-size:10px;color:#94a3b8}
+.part-actions{display:flex;gap:4px;flex-shrink:0}
+.flag-btn,.note-btn{font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b;transition:all .15s}
+.flag-btn.on{border:2px solid #ca8a04;background:#fef9c3;font-weight:700;color:#ca8a04}
+.note-btn.on{border:2px solid #3b82f6;background:#eff6ff;color:#2563eb}
+.note-area{padding:0 14px 10px;border-top:1px solid #f1f5f9;display:none}
+.note-area.open{display:block}
+.note-area input{width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;margin-top:8px;outline:none}
+.missing-section{padding:8px 16px 24px}
+.missing-card{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-top:8px;padding:10px 14px;display:flex;align-items:center;gap:12px}
+.missing-card .m-desc{font-weight:700;font-size:14px;color:#991b1b}
+.missing-card .m-meta{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-top:2px}
+.missing-card .m-meta span{font-size:12px}
+.remove-btn{background:#fee2e2;border:1px solid #fecaca;border-radius:4px;cursor:pointer;padding:4px 8px;font-size:11px;color:#991b1b}
+.add-missing-btn{width:100%;padding:12px;border:2px dashed #fca5a5;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;color:#dc2626;font-weight:600;margin-top:8px;transition:all .15s}
+.add-missing-btn.open{background:#fef2f2}
+.add-form{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-top:8px;padding:16px;display:none}
+.add-form.open{display:block}
+.add-form .form-label{font-size:13px;font-weight:600;color:#991b1b;margin-bottom:10px}
+.add-form .form-grid{display:grid;grid-template-columns:1fr 2fr;gap:8px}
+.add-form input{padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;outline:none}
+.add-form .submit-btn{margin-top:10px;padding:8px 20px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
+.add-form .submit-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:not-allowed}
+.empty-summary{color:#64748b;font-size:14px}
+@media(max-width:768px){
+  .part-main{flex-wrap:wrap}.part-actions{width:100%;justify-content:flex-end;margin-top:4px}
+  .add-form .form-grid{grid-template-columns:1fr}
+}
+/* View navigation */
+.view-nav{display:flex;background:#0f172a;padding:0 24px;gap:4px}
+.view-nav-btn{padding:16px 22px;color:rgba(255,255,255,.55);border:none;background:transparent;cursor:pointer;font-size:15px;font-weight:700;border-bottom:3px solid transparent;transition:all .15s;letter-spacing:.01em}
+.view-nav-btn.active{color:#fff;border-bottom-color:#3b82f6}
+.view-nav-btn:hover:not(.active){color:rgba(255,255,255,.85)}
+/* Comparison view */
+.comp-wrap{padding:20px 16px}
+.comp-upload-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.upload-card{border:2px dashed #cbd5e1;border-radius:10px;padding:24px;text-align:center;background:#fff;transition:border-color .2s,background .2s}
+.upload-card.loaded{border-color:#22c55e;border-style:solid;background:#f0fdf4}
+.upload-card h3{font-size:14px;font-weight:700;color:#1e293b;margin-bottom:6px}
+.up-sub{font-size:12px;color:#64748b;margin-bottom:0}
+.file-icon{font-size:32px;margin-bottom:8px}
+.upload-file-btn{padding:8px 18px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;cursor:pointer;font-size:12px;color:#475569;font-weight:500;display:inline-block;margin-top:12px}
+.upload-file-btn:hover{background:#e2e8f0}
+.upload-loaded-name{font-size:12px;color:#16a34a;font-weight:600;margin-top:10px;word-break:break-all}
+.upload-loaded-count{font-size:11px;color:#15803d;margin-top:2px}
+.comp-action-row{display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:24px}
+.compare-btn{padding:11px 32px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.compare-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:not-allowed}
+.compare-btn:not(:disabled):hover{background:#2563eb}
+.clear-comp-btn{padding:8px 16px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500}
+.clear-comp-btn:hover{background:#e2e8f0}
+.comp-sum-bar{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.comp-stat{flex:1;min-width:90px;padding:14px 12px;border-radius:8px;text-align:center}
+.cstat-chg{background:#fef9c3;border:1px solid #fde047;color:#854d0e}
+.cstat-add{background:#dcfce7;border:1px solid #86efac;color:#166534}
+.cstat-rem{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
+.comp-stat-num{font-size:26px;font-weight:700;line-height:1.1}
+.comp-stat-lbl{font-size:12px;margin-top:2px;font-weight:500}
+.diff-panel{border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;overflow:hidden}
+.diff-panel-hdr{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.diff-chg .diff-panel-hdr{background:#fef9c3;border-bottom:1px solid #fde047}
+.diff-add .diff-panel-hdr{background:#dcfce7;border-bottom:1px solid #86efac}
+.diff-rem .diff-panel-hdr{background:#fee2e2;border-bottom:1px solid #fca5a5}
+.diff-panel-title{font-size:14px;font-weight:700}
+.diff-toggle{font-size:12px;color:#64748b}
+.diff-table{width:100%;border-collapse:collapse;font-size:12px}
+.diff-table th{padding:7px 12px;border-bottom:2px solid #e2e8f0;text-align:left;background:#f8fafc;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.diff-table td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+.diff-table tr:last-child td{border-bottom:none}
+.diff-table tr:hover td{background:#f8fafc}
+.diff-group-hdr td{background:#f1f5f9;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.6px;padding:6px 12px;border-bottom:1px solid #e2e8f0}
+.chg-from{display:inline;padding:1px 5px;border-radius:3px;background:#fee2e2;color:#991b1b;text-decoration:line-through;font-family:monospace;font-size:11px;margin-right:3px}
+.chg-to{display:inline;padding:1px 5px;border-radius:3px;background:#dcfce7;color:#166534;font-family:monospace;font-size:11px;font-weight:700}
+.chg-field{font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600;margin-bottom:2px}
+.diff-pn{font-family:monospace;font-size:12px;font-weight:600;color:#1e293b}
+.diff-empty{padding:20px;text-align:center;color:#94a3b8;font-size:13px}
+.comp-hint{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:12px;color:#0369a1;line-height:1.6}
+.comp-hint strong{font-weight:700;display:block;margin-bottom:4px;font-size:13px}
+.no-diff-msg{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:20px;text-align:center;font-size:14px;color:#166534;font-weight:600;margin-bottom:16px}
+.download-row{text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid #e2e8f0}
+.download-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:#1e293b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.download-btn:hover{background:#334155}
+@media(max-width:600px){.comp-upload-row{grid-template-columns:1fr}.comp-sum-bar{gap:8px}}
+</style>
+</head>
+<body>
+<div id="loading" class="loading-screen">
+  <div class="loading-spinner"></div>
+  <h2>990-00003-C.0 BOM Validation</h2>
+  <p id="loadingMsg">Connecting to database...</p>
+  <p id="loadingError" class="loading-error"></p>
+  <button id="loadingRetry" class="loading-retry" onclick="location.reload()">Retry</button>
+</div>
+<div id="app"></div>
+<div id="syncBadge" class="sync-badge connected" style="display:none">● Connected</div>
+
+<!-- Firebase compat SDK (works everywhere, no ES modules needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
+// Initialize Firebase
+firebase.initializeApp({
+  apiKey:"AIzaSyBpmBmqalGNMVgy4bBPcGZoCSpko7vAKJY",
+  authDomain:"bom-validation.firebaseapp.com",
+  projectId:"bom-validation",
+  storageBucket:"bom-validation.firebasestorage.app",
+  messagingSenderId:"262071155130",
+  appId:"1:262071155130:web:5731dec01ac93f90288583"
+});
+
+var db = firebase.firestore();
+var BUILD_ID = "990-00003-C0";
+var stateRef = db.collection("builds").doc(BUILD_ID);
+
+// Connection timeout — don't hang forever
+var loadTimeout = setTimeout(function(){
+  document.getElementById('loadingMsg').textContent = 'Taking longer than expected...';
+  document.getElementById('loadingError').style.display = 'block';
+  document.getElementById('loadingError').textContent = 'Check your internet connection or firewall settings.';
+  document.getElementById('loadingRetry').style.display = 'inline-block';
+}, 8000);
+
+var BOM={
+"J0 Assembly (970-00079-B)":[
+{i:"1.1",pn:"401-00096",rev:"C",desc:"Input Shaft, SHG-50",qty:1,uom:"EA"},
+{i:"1.2",pn:"423-00033",rev:"B",desc:"ROTOR SHG-50 (91 MM ID)",qty:1,uom:"EA"},
+{i:"1.3",pn:"420-00025",rev:"A",desc:"Bearing, 61816-2RZ",qty:2,uom:"EA"},
+{i:"1.4",pn:"401-00339",rev:"B",desc:"SHG-50 STATOR HOUSING",qty:1,uom:"EA"},
+{i:"1.5",pn:"423-00030",rev:"B",desc:"STATOR SHG 50 (178MM OD)",qty:1,uom:"EA"},
+{i:"1.6",pn:"424-00026",rev:"A",desc:"Split Wave Spring, Smalley SSB-0394",qty:1,uom:"EA"},
+{i:"1.7",pn:"401-00100",rev:"D",desc:"Bearing Preload Ring, SHG-50",qty:1,uom:"EA"},
+{i:"1.8",pn:"415-00026",rev:"A",desc:"Retaining Ring, 92623A325",qty:1,uom:"EA"},
+{i:"1.9",pn:"422-00023",rev:"B",desc:"SHG 50 GEAR UNIT",qty:1,uom:"EA"},
+{i:"1.10",pn:"465-01193",rev:"A",desc:"M5x0.8x25mm SHCS, Gr12.9",qty:12,uom:"EA"},
+{i:"1.11",pn:"401-00173",rev:"B",desc:"Joint Nut Ring, SHG-50",qty:1,uom:"EA"},
+{i:"1.12",pn:"401-00174",rev:"C",desc:"Output Sealing Ring, SHG-50",qty:1,uom:"EA"},
+{i:"1.13",pn:"461-00239",rev:"A",desc:"M4x0.7x8mm Hex Flat Head, Gr12.9",qty:4,uom:"EA"},
+{i:"1.14",pn:"401-00134",rev:"E",desc:"THOR BASE",qty:1,uom:"EA"},
+{i:"1.15",pn:"465-03709",rev:"A",desc:"M8x1.25x45mm SHCS PT, Gr12.9",qty:16,uom:"EA"},
+{i:"1.16",pn:"300-00035",rev:"A",desc:"MOBILGREASE 28",qty:160,uom:"G"},
+{i:"1.17",pn:"410-00058",rev:"A",desc:"Sealing Pan Head Screws 93627A317",qty:2,uom:"EA"},
+{i:"1.18",pn:"401-00113",rev:"B",desc:"Feedback Tube, SHG-50",qty:1,uom:"EA"},
+{i:"1.19",pn:"465-00905",rev:"A",desc:"M4x0.7x8mm SHCS, Gr12.9",qty:26,uom:"EA"},
+{i:"1.20",pn:"401-00350",rev:"A",desc:"Thor J0 Terminal Block Mount",qty:1,uom:"EA"},
+{i:"1.21",pn:"200-00049",rev:"A",desc:"M5 DOUBLE ROW 2 POS Terminal Block",qty:1,uom:"EA"},
+{i:"1.22",pn:"465-01157",rev:"A",desc:"M5x0.8x16mm SHCS, Gr12.9",qty:4,uom:"EA"},
+{i:"1.23",pn:"220-00185",rev:"B",desc:"SHG50 J0 HARNESS",qty:1,uom:"EA"},
+{i:"1.24",pn:"402-00054",rev:"B",desc:"SHG50 LOWER CABLE RETENTION BRACKET",qty:1,uom:"EA"},
+{i:"1.25",pn:"438-00028",rev:"A",desc:"Cable Tie Mount",qty:5,uom:"EA"},
+{i:"1.26",pn:"409-00103",rev:"A",desc:"CABLE GLAND 11-16.99MM M25 BRASS",qty:1,uom:"EA"},
+{i:"1.27",pn:"220-00213",rev:"F",desc:"THOR, PIGTAIL, PIN SLEEVE",qty:1,uom:"EA"},
+{i:"1.28",pn:"401-00148",rev:"B",desc:"THOR BASE CLOSEOUT",qty:1,uom:"EA"},
+{i:"1.29",pn:"424-00024",rev:"A",desc:"Wave Spring, Shim End, 60mm OD, CMS60-L1",qty:1,uom:"EA"},
+{i:"1.31",pn:"415-00033",rev:"A",desc:"External Retaining Ring, 98541A440",qty:1,uom:"EA"},
+{i:"1.32",pn:"424-00035",rev:"A",desc:"Wave Disc Spring 9714K751",qty:1,uom:"EA"},
+{i:"1.33",pn:"432-00025",rev:"A",desc:"30x15mm x 0.5mm Thermal Pad, 9.0W/m-K",qty:6,uom:"EA"},
+{i:"1.34",pn:"401-00269",rev:"B",desc:"OUTPUT ENCODER MOTION COUPLER",qty:1,uom:"EA"},
+{i:"1.35",pn:"960-00034",rev:"E",desc:"SHG 50 PCBA",qty:1,uom:"EA"},
+{i:"1.36",pn:"465-00887",rev:"A",desc:"M4x0.7x6mm SHCS, Gr12.9",qty:3,uom:"EA"},
+{i:"1.37",pn:"401-00333",rev:"B",desc:"SHG50 HEAT SINK",qty:1,uom:"EA"},
+{i:"1.38",pn:"430-00030",rev:"A",desc:"O-Ring, 7.358 I.D. x .060 C.S. 70BN",qty:1,uom:"EA"},
+{i:"1.39",pn:"430-00031",rev:"A",desc:"O-Ring, AS568-166 BN70",qty:1,uom:"EA"},
+{i:"1.40",pn:"430-00055",rev:"A",desc:"O-Ring, AS568-135, BN70",qty:1,uom:"EA"},
+{i:"1.41",pn:"430-00063",rev:"A",desc:"O-RING, AS568-174 BN70",qty:1,uom:"EA"},
+{i:"1.42",pn:"430-00027",rev:"A",desc:"O-Ring, AS586-171 BN70",qty:1,uom:"EA"},
+{i:"1.43",pn:"430-00059",rev:"A",desc:"O-Ring, AS568-266 BN70",qty:1,uom:"EA"},
+{i:"1.44",pn:"401-00299",rev:"C",desc:"SHG-50 J0 Shell",qty:1,uom:"EA"},
+{i:"1.45",pn:"401-00298",rev:"B",desc:"SHG-50 CAP J0",qty:1,uom:"EA"},
+{i:"1.46",pn:"465-03691",rev:"A",desc:"M8x1.25x80mm SHCS PT, Gr12.9",qty:12,uom:"EA"},
+{i:"1.47",pn:"402-00123",rev:"B",desc:"UPPER HARNESS BRACKET, SHG-50",qty:1,uom:"EA"},
+{i:"1.48",pn:"465-00707",rev:"A",desc:"M3x0.5x6mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"1.49",pn:"410-00068",rev:"A",desc:"M5x0.8x45mm SEALING SHCS, SS 18-8",qty:1,uom:"EA"},
+{i:"1.50",pn:"220-00153",rev:"B",desc:"M12 X-CODE CABLE ASSY",qty:1,uom:"EA"},
+{i:"1.51",pn:"465-00941",rev:"A",desc:"M4x0.7x12mm SHCS, Gr12.9",qty:5,uom:"EA"},
+{i:"1.52",pn:"605-00036",rev:"A",desc:"THOR PLAQUE",qty:1,uom:"EA"}],
+"J0 Encoder & Brake (970-00087-B)":[
+{i:"1.30.1",pn:"401-00403",rev:"A",desc:"ENCODER-BRAKE HOUSING, SHG-50 V2",qty:1,uom:"EA"},
+{i:"1.30.2",pn:"960-00031",rev:"E",desc:"ENCODER PCBA",qty:1,uom:"EA"},
+{i:"1.30.3",pn:"227-00008",rev:"A",desc:"65mm 22POS 0.5mm PITCH ENCODER FFC",qty:2,uom:"EA"},
+{i:"1.30.4",pn:"410-00071",rev:"A",desc:"M3x0.5x3 TORX BUTTONHEAD",qty:2,uom:"EA"},
+{i:"1.30.5",pn:"401-00109",rev:"C",desc:"High Speed Bearing Housing, SHG-50",qty:1,uom:"EA"},
+{i:"1.30.6",pn:"420-00022",rev:"A",desc:"Bearing, 61806-2RZ",qty:1,uom:"EA"},
+{i:"1.30.7",pn:"401-00111",rev:"D",desc:"Brake Pad, SHG-50",qty:2,uom:"EA"},
+{i:"1.30.8",pn:"402-00105",rev:"A",desc:"BRAKE DISK, STEEL, SHG-50",qty:1,uom:"EA"},
+{i:"1.30.9",pn:"424-00037",rev:"A",desc:"Wave Spring, CMS60-H4",qty:1,uom:"EA"},
+{i:"1.30.10",pn:"415-00034",rev:"A",desc:"External Retaining Ring, 98541A167",qty:1,uom:"EA"},
+{i:"1.30.11",pn:"426-00023",rev:"B",desc:"46mm ID Encoder Disk",qty:2,uom:"EA"},
+{i:"1.30.12",pn:"420-00023",rev:"A",desc:"Bearing, 61707-2RS1",qty:1,uom:"EA"},
+{i:"1.30.13",pn:"401-00268",rev:"C",desc:"Low Speed Bearing Housing, SHG-25",qty:1,uom:"EA"},
+{i:"1.30.14",pn:"425-00023",rev:"B",desc:"Brake Solenoid, M12",qty:1,uom:"EA"}],
+"Shoulder to Elbow Link (970-00108-B)":[
+{i:"2.1",pn:"465-01661",rev:"A",desc:"M8x1.25x50mm SHCS, Gr12.9",qty:10,uom:"EA"},
+{i:"2.2",pn:"401-00300",rev:"B",desc:"Size 50, THOR J1, Joint Shell",qty:1,uom:"EA"},
+{i:"2.3",pn:"401-00314",rev:"B",desc:"Size 40, THOR J2, Joint Shell",qty:1,uom:"EA"},
+{i:"2.4",pn:"465-03439",rev:"A",desc:"M6x1x40mm SHCS PT, Gr12.9",qty:10,uom:"EA"},
+{i:"2.5",pn:"401-00400",rev:"A",desc:"THOR SHOULDER LINK, SOLID",qty:1,uom:"EA"},
+{i:"2.6",pn:"416-00028",rev:"A",desc:"DOWEL PIN, 91595A443",qty:2,uom:"EA"},
+{i:"2.7",pn:"438-00027",rev:"A",desc:"CABLE TIE HOLDER FOR CURVED SURFACE",qty:2,uom:"EA"},
+{i:"2.8",pn:"430-00028",rev:"A",desc:"O-RING, AS568-161 BN70",qty:2,uom:"EA"},
+{i:"2.9",pn:"220-00187",rev:"B",desc:"THOR SHOULDER LINK HARNESS",qty:1,uom:"EA"}],
+"J1 Assembly (970-00080-B)":[
+{i:"3.1",pn:"401-00096",rev:"C",desc:"Input Shaft, SHG-50",qty:1,uom:"EA"},
+{i:"3.2",pn:"423-00033",rev:"B",desc:"ROTOR SHG-50 (91 MM ID)",qty:1,uom:"EA"},
+{i:"3.3",pn:"420-00025",rev:"A",desc:"Bearing, 61816-2RZ",qty:2,uom:"EA"},
+{i:"3.4",pn:"401-00339",rev:"B",desc:"SHG-50 STATOR HOUSING",qty:1,uom:"EA"},
+{i:"3.5",pn:"423-00030",rev:"B",desc:"STATOR SHG 50 (178MM OD)",qty:1,uom:"EA"},
+{i:"3.6",pn:"424-00026",rev:"A",desc:"Split Wave Spring, Smalley SSB-0394",qty:1,uom:"EA"},
+{i:"3.7",pn:"401-00100",rev:"D",desc:"Bearing Preload Ring, SHG-50",qty:1,uom:"EA"},
+{i:"3.8",pn:"415-00026",rev:"A",desc:"Retaining Ring, 92623A325",qty:1,uom:"EA"},
+{i:"3.9",pn:"422-00023",rev:"B",desc:"SHG 50 GEAR UNIT",qty:1,uom:"EA"},
+{i:"3.10",pn:"465-01193",rev:"A",desc:"M5x0.8x25mm SHCS, Gr12.9",qty:10,uom:"EA"},
+{i:"3.11",pn:"401-00173",rev:"B",desc:"Joint Nut Ring, SHG-50",qty:1,uom:"EA"},
+{i:"3.12",pn:"401-00174",rev:"C",desc:"Output Sealing Ring, SHG-50",qty:1,uom:"EA"},
+{i:"3.13",pn:"461-00239",rev:"A",desc:"M4x0.7x8mm Hex Flat Head, Gr12.9",qty:4,uom:"EA"},
+{i:"3.14",pn:"401-00172",rev:"C",desc:"Joint Interface Collar, SHG-50",qty:1,uom:"EA"},
+{i:"3.15",pn:"401-00114",rev:"D",desc:"Output Flange, SHG-50",qty:1,uom:"EA"},
+{i:"3.16",pn:"465-03727",rev:"A",desc:"M8x1.25x65mm SHCS PT, Gr12.9",qty:16,uom:"EA"},
+{i:"3.17",pn:"300-00035",rev:"A",desc:"MOBILGREASE 28",qty:160,uom:"G"},
+{i:"3.18",pn:"410-00058",rev:"A",desc:"Sealing Pan Head Screws 93627A317",qty:2,uom:"EA"},
+{i:"3.19",pn:"401-00113",rev:"B",desc:"Feedback Tube, SHG-50",qty:1,uom:"EA"},
+{i:"3.20",pn:"465-00905",rev:"A",desc:"M4x0.7x8mm SHCS, Gr12.9",qty:11,uom:"EA"},
+{i:"3.21",pn:"424-00024",rev:"A",desc:"Wave Spring, Shim End, 60mm OD, CMS60-L1",qty:1,uom:"EA"},
+{i:"3.23",pn:"415-00033",rev:"A",desc:"External Retaining Ring, 98541A440",qty:1,uom:"EA"},
+{i:"3.24",pn:"424-00035",rev:"A",desc:"Wave Disc Spring 9714K751",qty:1,uom:"EA"},
+{i:"3.25",pn:"432-00025",rev:"A",desc:"30x15mm x 0.5mm Thermal Pad, 9.0W/m-K",qty:6,uom:"EA"},
+{i:"3.26",pn:"401-00269",rev:"B",desc:"OUTPUT ENCODER MOTION COUPLER",qty:1,uom:"EA"},
+{i:"3.27",pn:"960-00034",rev:"E",desc:"SHG 50 PCBA",qty:1,uom:"EA"},
+{i:"3.28",pn:"465-00887",rev:"A",desc:"M4x0.7x6mm SHCS, Gr12.9",qty:3,uom:"EA"},
+{i:"3.29",pn:"401-00333",rev:"B",desc:"SHG50 HEAT SINK",qty:1,uom:"EA"},
+{i:"3.30",pn:"430-00030",rev:"A",desc:"O-Ring, 7.358 I.D. x .060 C.S. 70BN",qty:1,uom:"EA"},
+{i:"3.31",pn:"430-00031",rev:"A",desc:"O-Ring, AS568-166 BN70",qty:1,uom:"EA"},
+{i:"3.32",pn:"430-00029",rev:"A",desc:"O-Ring, AS568-165 BN70",qty:1,uom:"EA"},
+{i:"3.33",pn:"430-00055",rev:"A",desc:"O-Ring, AS568-135, BN70",qty:1,uom:"EA"},
+{i:"3.34",pn:"430-00027",rev:"A",desc:"O-Ring, AS586-171 BN70",qty:1,uom:"EA"},
+{i:"3.35",pn:"402-00054",rev:"B",desc:"SHG50 LOWER CABLE RETENTION BRACKET",qty:1,uom:"EA"},
+{i:"3.36",pn:"220-00186",rev:"B",desc:"THOR J1 HARNESS",qty:1,uom:"EA"},
+{i:"3.37",pn:"402-00123",rev:"B",desc:"UPPER HARNESS BRACKET, SHG-50",qty:1,uom:"EA"},
+{i:"3.38",pn:"465-00707",rev:"A",desc:"M3x0.5x6mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"3.39",pn:"465-00941",rev:"A",desc:"M4x0.7x12mm SHCS, Gr12.9",qty:5,uom:"EA"},
+{i:"3.40",pn:"405-00025",rev:"B",desc:"SHG-50 RUBBER BAND",qty:1,uom:"EA"}],
+"J1 Encoder & Brake (970-00087-B)":[
+{i:"3.22.1",pn:"401-00403",rev:"A",desc:"ENCODER-BRAKE HOUSING, SHG-50 V2",qty:1,uom:"EA"},
+{i:"3.22.2",pn:"960-00031",rev:"E",desc:"ENCODER PCBA",qty:1,uom:"EA"},
+{i:"3.22.3",pn:"227-00008",rev:"A",desc:"65mm 22POS 0.5mm PITCH ENCODER FFC",qty:2,uom:"EA"},
+{i:"3.22.4",pn:"410-00071",rev:"A",desc:"M3x0.5x3 TORX BUTTONHEAD",qty:2,uom:"EA"},
+{i:"3.22.5",pn:"401-00109",rev:"C",desc:"High Speed Bearing Housing, SHG-50",qty:1,uom:"EA"},
+{i:"3.22.6",pn:"420-00022",rev:"A",desc:"Bearing, 61806-2RZ",qty:1,uom:"EA"},
+{i:"3.22.7",pn:"401-00111",rev:"D",desc:"Brake Pad, SHG-50",qty:2,uom:"EA"},
+{i:"3.22.8",pn:"402-00105",rev:"A",desc:"BRAKE DISK, STEEL, SHG-50",qty:1,uom:"EA"},
+{i:"3.22.9",pn:"424-00037",rev:"A",desc:"Wave Spring, CMS60-H4",qty:1,uom:"EA"},
+{i:"3.22.10",pn:"415-00034",rev:"A",desc:"External Retaining Ring, 98541A167",qty:1,uom:"EA"},
+{i:"3.22.11",pn:"426-00023",rev:"B",desc:"46mm ID Encoder Disk",qty:2,uom:"EA"},
+{i:"3.22.12",pn:"420-00023",rev:"A",desc:"Bearing, 61707-2RS1",qty:1,uom:"EA"},
+{i:"3.22.13",pn:"401-00268",rev:"C",desc:"Low Speed Bearing Housing, SHG-25",qty:1,uom:"EA"},
+{i:"3.22.14",pn:"425-00023",rev:"B",desc:"Brake Solenoid, M12",qty:1,uom:"EA"}],
+"J2 Core (970-00081-B)":[
+{i:"4.1",pn:"401-00304",rev:"B",desc:"Input Shaft, SHG-40",qty:1,uom:"EA"},
+{i:"4.2",pn:"423-00034",rev:"B",desc:"ROTOR SHG-40 (84 MM ID)",qty:1,uom:"EA"},
+{i:"4.3",pn:"420-00024",rev:"A",desc:"Bearing, 61812-2RZ",qty:2,uom:"EA"},
+{i:"4.4",pn:"401-00305",rev:"B",desc:"Input Housing, SHG-40",qty:1,uom:"EA"},
+{i:"4.5",pn:"423-00031",rev:"B",desc:"STATOR SHG-40 (127 MM OD)",qty:1,uom:"EA"},
+{i:"4.6",pn:"424-00023",rev:"A",desc:"Split Wave Spring, 75mm OD, 205N",qty:1,uom:"EA"},
+{i:"4.7",pn:"401-00306",rev:"C",desc:"Bearing Preload Ring, SHG-40",qty:1,uom:"EA"},
+{i:"4.8",pn:"415-00024",rev:"A",desc:"Retaining Ring, Spiral, 60mm",qty:1,uom:"EA"},
+{i:"4.9",pn:"422-00030",rev:"A",desc:"SHG 40 GEAR UNIT",qty:1,uom:"EA"},
+{i:"4.10",pn:"401-00311",rev:"B",desc:"Orange Accent Ring, SHG-40",qty:1,uom:"EA"},
+{i:"4.11",pn:"401-00310",rev:"B",desc:"Joint Interface Collar, SHG-40",qty:1,uom:"EA"},
+{i:"4.12",pn:"401-00309",rev:"C",desc:"Output Plate, SHG-40",qty:1,uom:"EA"},
+{i:"4.13",pn:"300-00035",rev:"A",desc:"MOBILGREASE 28",qty:93,uom:"G"},
+{i:"4.14",pn:"410-00058",rev:"A",desc:"Sealing Pan Head Screws 93627A317",qty:2,uom:"EA"},
+{i:"4.15",pn:"401-00307",rev:"A",desc:"Feedback Tube, SHG-40",qty:1,uom:"EA"},
+{i:"4.16",pn:"402-00133",rev:"A",desc:"SHG 40 LOWER CABLE RETENTION BRACKET",qty:1,uom:"EA"},
+{i:"4.17",pn:"424-00024",rev:"A",desc:"Wave Spring, Shim End, 60mm OD, CMS60-L1",qty:1,uom:"EA"},
+{i:"4.19",pn:"415-00033",rev:"A",desc:"External Retaining Ring, 98541A440",qty:1,uom:"EA"},
+{i:"4.20",pn:"424-00035",rev:"A",desc:"Wave Disc Spring 9714K751",qty:1,uom:"EA"},
+{i:"4.21",pn:"401-00269",rev:"B",desc:"OUTPUT ENCODER MOTION COUPLER",qty:1,uom:"EA"},
+{i:"4.22",pn:"414-00028",rev:"B",desc:"M4 MALE TO M3 FEMALE 20MM STANDOFF",qty:1,uom:"EA"},
+{i:"4.23",pn:"401-00331",rev:"B",desc:"SHG40 BOTTOM HEATSINK PLATE",qty:1,uom:"EA"},
+{i:"4.24",pn:"960-00033",rev:"I",desc:"SHG-25 PCBA",qty:1,uom:"EA"},
+{i:"4.25",pn:"432-00022",rev:"A",desc:"10x10mm x 0.5mm Thermal Pad, 9.0W/m-K",qty:6,uom:"EA"},
+{i:"4.26",pn:"401-00330",rev:"B",desc:"SHG 40 TOP HEATSINK PLATE",qty:1,uom:"EA"},
+{i:"4.27",pn:"402-00122",rev:"B",desc:"SHG-40 UPPER CABLE RETENTION BRACKET",qty:1,uom:"EA"},
+{i:"4.28",pn:"465-00977",rev:"A",desc:"M4x0.7x16mm SHCS, Gr12.9",qty:17,uom:"EA"},
+{i:"4.29",pn:"461-00239",rev:"A",desc:"M4x0.7x8mm Hex Flat Head, Gr12.9",qty:2,uom:"EA"},
+{i:"4.30",pn:"465-03439",rev:"A",desc:"M6x1x40mm SHCS PT, Gr12.9",qty:16,uom:"EA"},
+{i:"4.31",pn:"465-00743",rev:"A",desc:"M3x0.5x10mm SHCS, Gr12.9",qty:4,uom:"EA"},
+{i:"4.32",pn:"465-00707",rev:"A",desc:"M3x0.5x6mm SHCS, Gr12.9",qty:7,uom:"EA"},
+{i:"4.33",pn:"430-00033",rev:"A",desc:"O-Ring, AS568-160 BN70",qty:2,uom:"EA"},
+{i:"4.34",pn:"430-00029",rev:"A",desc:"O-Ring, AS568-165 BN70",qty:1,uom:"EA"},
+{i:"4.35",pn:"430-00057",rev:"A",desc:"O-Ring, AS568-134 BN70",qty:1,uom:"EA"},
+{i:"4.36",pn:"465-00797",rev:"A",desc:"M3x0.5x16mm SHCS, Gr12.9",qty:1,uom:"EA"}],
+"J2 Brake Assembly (970-00090-B)":[
+{i:"4.18.1",pn:"401-00404",rev:"A",desc:"ENCODER-BRAKE HOUSING, SHG-40",qty:1,uom:"EA"},
+{i:"4.18.2",pn:"227-00008",rev:"A",desc:"65mm 22POS 0.5mm PITCH ENCODER FFC",qty:2,uom:"EA"},
+{i:"4.18.3",pn:"420-00022",rev:"A",desc:"Bearing, 61806-2RZ",qty:1,uom:"EA"},
+{i:"4.18.4",pn:"401-00109",rev:"C",desc:"High Speed Bearing Housing, SHG-50",qty:1,uom:"EA"},
+{i:"4.18.5",pn:"401-00111",rev:"D",desc:"Brake Pad, SHG-50",qty:2,uom:"EA"},
+{i:"4.18.6",pn:"402-00048",rev:"C",desc:"Brake Disk, SHG-50",qty:1,uom:"EA"},
+{i:"4.18.7",pn:"415-00034",rev:"A",desc:"External Retaining Ring, 98541A167",qty:1,uom:"EA"},
+{i:"4.18.8",pn:"426-00023",rev:"B",desc:"46mm ID Encoder Disk",qty:2,uom:"EA"},
+{i:"4.18.9",pn:"420-00023",rev:"A",desc:"Bearing, 61707-2RS1",qty:1,uom:"EA"},
+{i:"4.18.10",pn:"401-00268",rev:"C",desc:"Low Speed Bearing Housing, SHG-25",qty:1,uom:"EA"},
+{i:"4.18.11",pn:"410-00071",rev:"A",desc:"M3x0.5x3 TORX BUTTONHEAD",qty:2,uom:"EA"},
+{i:"4.18.12",pn:"424-00037",rev:"A",desc:"WAVE SPRING, CMS60-H4",qty:1,uom:"EA"},
+{i:"4.18.13",pn:"425-00023",rev:"B",desc:"Brake Solenoid, M12",qty:1,uom:"EA"},
+{i:"4.18.14",pn:"960-00031",rev:"E",desc:"ENCODER PCBA",qty:1,uom:"EA"}],
+"Wrist Link Sub-Assy (970-00059-B)":[
+{i:"8.1",pn:"401-00274",rev:"B",desc:"Marman Band, Threaded, SHG-25",qty:1,uom:"EA"},
+{i:"8.2",pn:"401-00275",rev:"B",desc:"Marman Band, Thru, SHG-25",qty:1,uom:"EA"},
+{i:"8.3",pn:"405-00026",rev:"B",desc:"SHG-25 Rubber Band",qty:1,uom:"EA"},
+{i:"8.4",pn:"465-00707",rev:"A",desc:"M3x0.5x6mm SHCS, Gr12.9",qty:1,uom:"EA"},
+{i:"8.5",pn:"465-00941",rev:"A",desc:"M4x0.7x12mm SHCS, Gr12.9",qty:12,uom:"EA"},
+{i:"8.6",pn:"405-00024",rev:"B",desc:"SHG-40 RUBBER BAND",qty:1,uom:"EA"},
+{i:"8.7",pn:"465-01193",rev:"A",desc:"M5x0.8x25mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"8.8",pn:"401-00326",rev:"B",desc:"THOR WRIST LINK TOOTH CONNECTION PLATE",qty:1,uom:"EA"},
+{i:"8.9",pn:"416-00028",rev:"A",desc:"Dowel Pin, 91595A443",qty:1,uom:"EA"},
+{i:"8.11",pn:"220-00188",rev:"B",desc:"THOR J2 HARNESS",qty:1,uom:"EA"},
+{i:"8.12",pn:"430-00051",rev:"A",desc:"O-Ring, AS568-153 BN70",qty:1,uom:"EA"},
+{i:"8.13",pn:"430-00025",rev:"A",desc:"O-RING, AS568-143 BN70",qty:1,uom:"EA"},
+{i:"8.14",pn:"220-00191",rev:"B",desc:"M3-M3 GROUND (14 AWG)",qty:1,uom:"EA"},
+{i:"8.15",pn:"438-00027",rev:"A",desc:"CABLE TIE HOLDER FOR CURVED SURFACE",qty:2,uom:"EA"}],
+"Wrist Link Bone (970-00127-B)":[
+{i:"8.10.1",pn:"401-00401",rev:"B",desc:"THOR WRIST LINK BOLTED",qty:1,uom:"EA"},
+{i:"8.10.2",pn:"401-00402",rev:"B",desc:"THOR ELBOW LINK BOLTED",qty:1,uom:"EA"},
+{i:"8.10.3",pn:"465-01373",rev:"A",desc:"M6x1x25mm SHCS, Gr12.9",qty:12,uom:"EA"},
+{i:"8.10.4",pn:"416-00028",rev:"A",desc:"DOWEL PIN, 91595A443",qty:1,uom:"EA"}],
+"Wrist Joint x3 (970-00082-B)":[
+{i:"9.1",pn:"401-00258",rev:"B",desc:"Input Housing, SHG-25",qty:1,uom:"EA"},
+{i:"9.2",pn:"423-00037",rev:"B",desc:"STATOR SHG-25 (82 MM OD)",qty:1,uom:"EA"},
+{i:"9.3",pn:"401-00259",rev:"D",desc:"Input Shaft, SHG-25",qty:1,uom:"EA"},
+{i:"9.4",pn:"423-00038",rev:"A",desc:"ROTOR SHG-25 (51 MM ID)",qty:1,uom:"EA"},
+{i:"9.5",pn:"420-00021",rev:"A",desc:"Bearing, 61808-2RZ",qty:2,uom:"EA"},
+{i:"9.6",pn:"424-00020",rev:"A",desc:"Split Wave Spring, 1775N41",qty:1,uom:"EA"},
+{i:"9.7",pn:"401-00260",rev:"D",desc:"Bearing Preload Ring, SHG-25",qty:1,uom:"EA"},
+{i:"9.8",pn:"415-00022",rev:"A",desc:"Retaining Ring, 92623A317",qty:1,uom:"EA"},
+{i:"9.9",pn:"422-00028",rev:"A",desc:"SHG 25 GEAR UNIT",qty:1,uom:"EA"},
+{i:"9.10",pn:"401-00271",rev:"B",desc:"SIZE 25 PTFE, STATIC",qty:1,uom:"EA"},
+{i:"9.11",pn:"401-00264",rev:"D",desc:"Output Plate, SHG-25",qty:1,uom:"EA"},
+{i:"9.12",pn:"401-00262",rev:"B",desc:"Feedback Tube, SHG-25",qty:1,uom:"EA"},
+{i:"9.13",pn:"402-00076",rev:"B",desc:"SHG 25 LOWER CABLE RETENTION BRACKET",qty:1,uom:"EA"},
+{i:"9.14",pn:"424-00024",rev:"A",desc:"WAVE SPRING, SHIM END, 60mm OD, CMS60-L1",qty:1,uom:"EA"},
+{i:"9.15",pn:"401-00263",rev:"B",desc:"Wire Cover SHG-25",qty:1,uom:"EA"},
+{i:"9.17",pn:"415-00033",rev:"A",desc:"External Retaining Ring, 98541A440",qty:1,uom:"EA"},
+{i:"9.18",pn:"401-00269",rev:"B",desc:"OUTPUT ENCODER MOTION COUPLER",qty:1,uom:"EA"},
+{i:"9.19",pn:"401-00332",rev:"C",desc:"SHG25 LOWER HEAT SINK",qty:1,uom:"EA"},
+{i:"9.20",pn:"414-00028",rev:"B",desc:"M4 MALE TO M3 FEMALE 20MM STANDOFF",qty:1,uom:"EA"},
+{i:"9.21",pn:"960-00033",rev:"I",desc:"SHG-25 PCBA",qty:1,uom:"EA"},
+{i:"9.22",pn:"401-00324",rev:"A",desc:"SHG25 TOP HEATSINK PLATE",qty:1,uom:"EA"},
+{i:"9.23",pn:"432-00022",rev:"A",desc:"10x10mm x 0.5mm Thermal Pad, 9.0W/m-K",qty:6,uom:"EA"},
+{i:"9.24",pn:"432-00026",rev:"A",desc:"40x20mm x 3mm Thermal Pad, 9.0W/m-K",qty:1,uom:"EA"},
+{i:"9.25",pn:"402-00121",rev:"B",desc:"UPPER HARNESS BRACKET, SHG-25",qty:1,uom:"EA"},
+{i:"9.26",pn:"465-00689",rev:"A",desc:"M3x0.5x5mm SHCS, Gr12.9",qty:7,uom:"EA"},
+{i:"9.27",pn:"401-00322",rev:"B",desc:"SHG-25 Shell, J0",qty:1,uom:"EA"},
+{i:"9.28",pn:"401-00274",rev:"B",desc:"Marman Band, Threaded, SHG-25",qty:1,uom:"EA"},
+{i:"9.29",pn:"401-00275",rev:"B",desc:"Marman Band, Thru, SHG-25",qty:1,uom:"EA"},
+{i:"9.30",pn:"405-00026",rev:"B",desc:"SHG-25 Rubber Band",qty:1,uom:"EA"},
+{i:"9.31",pn:"401-00323",rev:"B",desc:"SHG-25 CAP",qty:1,uom:"EA"},
+{i:"9.32",pn:"465-00779",rev:"A",desc:"M3x0.5x14mm SHCS, Gr12.9",qty:6,uom:"EA"},
+{i:"9.33",pn:"465-00725",rev:"A",desc:"M3x0.5x8mm SHCS, Gr12.9",qty:16,uom:"EA"},
+{i:"9.34",pn:"464-00005",rev:"A",desc:"M3x0.5x8mm Hex Flat Head, Gr12.9",qty:4,uom:"EA"},
+{i:"9.35",pn:"465-00977",rev:"A",desc:"M4x0.7x16mm SHCS, Gr12.9",qty:16,uom:"EA"},
+{i:"9.36",pn:"410-00058",rev:"A",desc:"Sealing Pan Head Screws 93627A317",qty:2,uom:"EA"},
+{i:"9.37",pn:"465-01049",rev:"A",desc:"M4x0.7x30mm SHCS, Gr12.9",qty:12,uom:"EA"},
+{i:"9.38",pn:"465-01193",rev:"A",desc:"M5x0.8x25mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"9.39",pn:"465-00941",rev:"A",desc:"M4x0.7x12mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"9.40",pn:"410-00067",rev:"A",desc:"M4x0.7x25mm SEALING SHCS, SS 18-8",qty:1,uom:"EA"},
+{i:"9.41",pn:"430-00049",rev:"A",desc:"O-Ring, AS568-043 BN70",qty:1,uom:"EA"},
+{i:"9.42",pn:"430-00025",rev:"A",desc:"O-Ring, AS568-143 BN70",qty:1,uom:"EA"},
+{i:"9.43",pn:"430-00050",rev:"A",desc:"O-Ring, AS568-045 BN70",qty:1,uom:"EA"},
+{i:"9.44",pn:"430-00026",rev:"A",desc:"O-Ring, AS568-156 BN70",qty:1,uom:"EA"},
+{i:"9.45",pn:"430-00061",rev:"A",desc:"O-Ring, AS568-120 BN70",qty:1,uom:"EA"},
+{i:"9.46",pn:"461-00311",rev:"A",desc:"M4x0.7x20mm Hex Flat Head, Gr12.9",qty:2,uom:"EA"},
+{i:"9.47",pn:"413-00024",rev:"A",desc:"M3 6mm THREADED HEX STANDOFF",qty:2,uom:"EA"},
+{i:"9.48",pn:"300-00035",rev:"A",desc:"MOBILGREASE 28",qty:15,uom:"G"}],
+"Wrist Encoder & Brake x3 (970-00073-B)":[
+{i:"9.16.1",pn:"401-00265",rev:"D",desc:"Encoder Board Mount, SHG-25",qty:1,uom:"EA"},
+{i:"9.16.2",pn:"401-00266",rev:"C",desc:"Encoder-Brake Housing, SHG-25",qty:1,uom:"EA"},
+{i:"9.16.3",pn:"426-00023",rev:"B",desc:"46mm ID Encoder Disk",qty:2,uom:"EA"},
+{i:"9.16.4",pn:"401-00267",rev:"C",desc:"High Speed Encoder Disc Mount, SHG-25",qty:1,uom:"EA"},
+{i:"9.16.5",pn:"420-00022",rev:"A",desc:"Bearing, 61806-2RZ",qty:1,uom:"EA"},
+{i:"9.16.6",pn:"402-00074",rev:"B",desc:"Brake Pad, SHG-25",qty:3,uom:"EA"},
+{i:"9.16.7",pn:"402-00075",rev:"B",desc:"Brake Disk, SHG-25",qty:1,uom:"EA"},
+{i:"9.16.8",pn:"424-00034",rev:"A",desc:"Wave Disc Spring, 9714K75",qty:1,uom:"EA"},
+{i:"9.16.9",pn:"415-00034",rev:"A",desc:"External Retaining Ring, 98541A167",qty:1,uom:"EA"},
+{i:"9.16.10",pn:"420-00023",rev:"A",desc:"Bearing, 61707-2RS1",qty:1,uom:"EA"},
+{i:"9.16.11",pn:"227-00008",rev:"A",desc:"65mm 22POS 0.5mm PITCH ENCODER FFC",qty:2,uom:"EA"},
+{i:"9.16.12",pn:"425-00022",rev:"B",desc:"Brake Solenoid, M8",qty:1,uom:"EA"},
+{i:"9.16.13",pn:"401-00268",rev:"C",desc:"Low Speed Bearing Housing, SHG-25",qty:1,uom:"EA"},
+{i:"9.16.14",pn:"424-00035",rev:"A",desc:"Wave Disc Spring 9714K751",qty:1,uom:"EA"},
+{i:"9.16.15",pn:"465-00725",rev:"A",desc:"M3x0.5x8mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"9.16.16",pn:"410-00071",rev:"A",desc:"M3x0.5x3 TORX BUTTONHEAD",qty:2,uom:"EA"},
+{i:"9.16.17",pn:"960-00031",rev:"E",desc:"ENCODER PCBA",qty:1,uom:"EA"}],
+"End Effector (970-00070-B)":[
+{i:"10.1",pn:"401-00216",rev:"D",desc:"THOR CUFF MAIN SHELL",qty:1,uom:"EA"},
+{i:"10.2",pn:"220-00248",rev:"A",desc:"DOMED BUTTON CABLE ASSY",qty:1,uom:"EA"},
+{i:"10.3",pn:"220-00249",rev:"A",desc:"Cycle Button Cable Assy (80mm)",qty:1,uom:"EA"},
+{i:"10.4",pn:"220-00114",rev:"B",desc:"FEMALE GRIPPER CONNECTOR CABLE",qty:1,uom:"EA"},
+{i:"10.5",pn:"401-00217",rev:"D",desc:"THOR CUFF ISO FLANGE, 80-6-M8",qty:1,uom:"EA"},
+{i:"10.6",pn:"401-00220",rev:"B",desc:"THOR CUFF LED DIFFUSER",qty:1,uom:"EA"},
+{i:"10.7",pn:"465-00707",rev:"A",desc:"M3x0.5x6mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"10.8",pn:"465-01391",rev:"A",desc:"M6x1x30mm SHCS, Gr12.9",qty:5,uom:"EA"},
+{i:"10.9",pn:"430-00062",rev:"A",desc:"O-Ring, 105mm ID, 2mm Thk, Buna-N, 70A",qty:1,uom:"EA"},
+{i:"10.10",pn:"430-00041",rev:"A",desc:"O-Ring, 92mm ID, 2mm Thk, Buna-N, 70A",qty:1,uom:"EA"},
+{i:"10.11",pn:"410-00063",rev:"A",desc:"M3x0.5x4 Torx Buttonhead",qty:1,uom:"EA"},
+{i:"10.12",pn:"220-00161",rev:"B",desc:"Thor EE IO HARNESS",qty:1,uom:"EA"},
+{i:"10.13",pn:"220-00153",rev:"B",desc:"M12 X-CODE CABLE ASSY",qty:1,uom:"EA"},
+{i:"10.14",pn:"220-00190",rev:"C",desc:"THOR J5 HARNESS",qty:1,uom:"EA"},
+{i:"10.15",pn:"960-00036",rev:"D",desc:"THOR EE PCBA",qty:1,uom:"EA"}],
+"Top-Level Parts":[
+{i:"5",pn:"220-00186",rev:"B",desc:"THOR J1 HARNESS",qty:1,uom:"EA"},
+{i:"6",pn:"465-03691",rev:"A",desc:"M8x1.25x80mm SHCS PT, Gr12.9",qty:12,uom:"EA"},
+{i:"7",pn:"465-03439",rev:"A",desc:"M6x1x40mm SHCS PT, Gr12.9",qty:12,uom:"EA"},
+{i:"11",pn:"220-00189",rev:"B",desc:"THOR J3 J4 HARNESS",qty:2,uom:"EA"},
+{i:"12",pn:"401-00313",rev:"B",desc:"Size 40, THOR J2, Joint Cap",qty:1,uom:"EA"},
+{i:"13",pn:"401-00301",rev:"B",desc:"SHG-50 THOR CAP J1",qty:1,uom:"EA"},
+{i:"14",pn:"220-00211",rev:"E",desc:"RO3, UMBILICAL, HIGH POWER, 5M, PIN SLEEVE",qty:1,uom:"EA"},
+{i:"15",pn:"410-00066",rev:"A",desc:"M4x0.7x45mm SEALING SHCS, SS 18-8",qty:1,uom:"EA"},
+{i:"16",pn:"465-00977",rev:"A",desc:"M4x0.7x16mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"17",pn:"430-00058",rev:"A",desc:"O-RING, AS568-260 BN70",qty:1,uom:"EA"},
+{i:"18",pn:"430-00059",rev:"A",desc:"O-RING, AS568-266 BN70",qty:1,uom:"EA"},
+{i:"19",pn:"410-00068",rev:"A",desc:"M5x0.8x45mm SEALING SHCS, SS 18-8",qty:1,uom:"EA"},
+{i:"20",pn:"465-01193",rev:"A",desc:"M5x0.8x25mm SHCS, Gr12.9",qty:2,uom:"EA"},
+{i:"21",pn:"410-00069",rev:"A",desc:"ALLOY STEEL CUP-POINT SET SCREW M6X6",qty:4,uom:"EA"},
+{i:"22",pn:"432-00026",rev:"A",desc:"40x20mm x 3mm Thermal Pad, 9.0W/m-K",qty:2,uom:"EA"},
+{i:"23",pn:"465-02094",rev:"A",desc:"M12x1.75x35mm SHCS, Gr12.9",qty:6,uom:"EA"},
+{i:"24",pn:"470-00079",rev:"A",desc:"M12 Normal Washer, 18-8 SS, ISO 7089",qty:6,uom:"EA"}]
+};
+
+var TABS=Object.keys(BOM);
+var curTab=0,checks={},flags={},notes={},missingParts={},showSummary=false,showAddForm={},dbReady=false,searchQuery='';
+var saveTimeout=null;
+// Comparison state
+var curView='validation',bomCurrent=null,bomNew=null,compResult=null,compCurrentName='',compNewName='';
+var openDiffPanels={revChanged:true,qtyChanged:true,added:true,removed:true};
+
+function saveToFirestore(){
+  clearTimeout(saveTimeout);
+  showSyncStatus('saving');
+  saveTimeout=setTimeout(function(){
+    stateRef.set({checks:checks,flags:flags,notes:notes,missingParts:missingParts,updatedAt:new Date().toISOString()})
+    .then(function(){showSyncStatus('connected')})
+    .catch(function(e){console.error("Save failed:",e);showSyncStatus('disconnected')});
+  },300);
+}
+
+function showSyncStatus(status){
+  var b=document.getElementById('syncBadge');
+  b.style.display='block';
+  if(status==='connected'){b.className='sync-badge connected';b.textContent='● Synced'}
+  else if(status==='saving'){b.className='sync-badge saving';b.textContent='● Saving...'}
+  else{b.className='sync-badge disconnected';b.textContent='● Offline'}
+}
+
+// Real-time listener
+stateRef.onSnapshot(function(snap){
+  clearTimeout(loadTimeout);
+  if(snap.exists){
+    var d=snap.data();
+    checks=d.checks||{};flags=d.flags||{};notes=d.notes||{};missingParts=d.missingParts||{};
+  }
+  dbReady=true;
+  document.getElementById('loading').style.display='none';
+  showSyncStatus('connected');
+  render();
+},function(err){
+  clearTimeout(loadTimeout);
+  console.error("Listener error:",err);
+  document.getElementById('loadingMsg').textContent='Connection error';
+  document.getElementById('loadingError').style.display='block';
+  document.getElementById('loadingError').textContent=err.message||'Could not connect to Firestore. Check console for details.';
+  document.getElementById('loadingRetry').style.display='inline-block';
+});
+
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function k(s,i){return s+'__'+i}
+
+window.toggleCheck=function(key){
+  if(checks[key]){checks[key]=false}else{checks[key]=true}
+  saveToFirestore();render();
+};
+window.toggleFlag=function(key){
+  if(flags[key]==='not_needed'){flags[key]=false}else{flags[key]='not_needed'}
+  saveToFirestore();render();
+};
+window.setNote=function(key,val){if(val)notes[key]=val;else delete notes[key];saveToFirestore()};
+window.toggleNoteArea=function(key){var el=document.getElementById('n_'+key);if(el)el.classList.toggle('open')};
+window.switchTab=function(i){curTab=i;searchQuery='';render()};
+window.updateSearch=function(val){searchQuery=val.toLowerCase();render();
+  var el=document.getElementById('searchInput');if(el){el.focus();el.selectionStart=el.selectionEnd=el.value.length}};
+window.clearSearch=function(){searchQuery='';render();var el=document.getElementById('searchInput');if(el)el.focus()};
+// Comparison view handlers
+window.switchView=function(v){curView=v;render()};
+window.handleFileUpload=function(which,input){
+  var file=input.files[0];if(!file)return;
+  function attemptParse(encoding,fallback){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var parsed=parseCSV(e.target.result);
+      if(!parsed){
+        if(fallback){fallback();return;}
+        // Show diagnostic to help debug
+        var raw=e.target.result||'';
+        var lines=raw.split(/\r\n|\r|\n/).filter(function(l){return l.trim();});
+        var firstLine=(lines[0]||'').substring(0,120);
+        alert('Could not parse "'+file.name+'".\n\nLines found: '+lines.length+'\nFirst line preview:\n'+firstLine+'\n\nMake sure the file has a header row with "Part Number" and "Description" columns.');
+        return;
+      }
+      if(which==='current'){bomCurrent=parsed;compCurrentName=file.name;}
+      else{bomNew=parsed;compNewName=file.name;}
+      compResult=null;render();
+    };
+    reader.readAsText(file,encoding);
+  }
+  // Try UTF-8 first, fall back to UTF-16 (common for Excel tab-delimited exports)
+  attemptParse('UTF-8',function(){attemptParse('UTF-16',null);});
+};
+window.runComparison=function(){
+  if(!bomCurrent||!bomNew)return;
+  compResult=compareBOMs(bomCurrent,bomNew);render();
+};
+window.toggleDiffPanel=function(p){openDiffPanels[p]=!openDiffPanels[p];render()};
+window.clearComparison=function(){bomCurrent=null;bomNew=null;compResult=null;compCurrentName='';compNewName='';render()};
+window.downloadCompCSV=function(){
+  if(!compResult)return;
+  function ce(v){v=String(v===null||v===undefined?'':v);if(v.search(/[",\r\n]/)!==-1)v='"'+v.replace(/"/g,'""')+'"';return v;}
+  var r=compResult;
+  var revItems=r.changed.filter(function(item){return item.changes.some(function(c){return c.f==='Rev';});});
+  var qtyItems=r.changed.filter(function(item){return item.changes.some(function(c){return c.f==='Qty';});});
+  var rows=[['Change Type','Sub-Assembly','Part Number','Description','Old Rev','New Rev','Old Qty','New Qty','UOM']];
+  revItems.forEach(function(item){
+    var chg=item.changes.find(function(c){return c.f==='Rev';});
+    rows.push(['Rev Change',item.part.sa||item.newPart.sa||'',item.part.pn,item.part.desc||item.newPart.desc,chg?chg.from:'',chg?chg.to:'','','',item.newPart.uom||item.part.uom]);
+  });
+  qtyItems.forEach(function(item){
+    var chg=item.changes.find(function(c){return c.f==='Qty';});
+    rows.push(['Qty Change',item.part.sa||item.newPart.sa||'',item.part.pn,item.part.desc||item.newPart.desc,'','',chg?chg.from:'',chg?chg.to:'',item.newPart.uom||item.part.uom]);
+  });
+  r.added.forEach(function(p){rows.push(['Added',p.sa||'',p.pn,p.desc,'',p.rev,'',p.qty,p.uom]);});
+  r.removed.forEach(function(p){rows.push(['Removed',p.sa||'',p.pn,p.desc,p.rev,'',p.qty,'',p.uom]);});
+  var csv=rows.map(function(row){return row.map(ce).join(',');}).join('\r\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var d=new Date();
+  var stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  a.href=url;a.download='BOM_Comparison_'+stamp+'.csv';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+};
+window.toggleSummary=function(){showSummary=!showSummary;render()};
+window.toggleAddForm=function(tab){showAddForm[tab]=!showAddForm[tab];render()};
+window.removeMissing=function(tab,id){missingParts[tab]=(missingParts[tab]||[]).filter(function(x){return x.id!==id});saveToFirestore();render()};
+window.addMissing=function(){
+  var desc=document.getElementById('mp_desc').value.trim();
+  if(!desc)return;
+  var tab=TABS[curTab];
+  if(!missingParts[tab])missingParts[tab]=[];
+  missingParts[tab].push({pn:document.getElementById('mp_pn').value,desc:desc,qty:document.getElementById('mp_qty').value,note:document.getElementById('mp_note').value,id:Date.now()});
+  saveToFirestore();render();
+};
+
+// CSV/TSV parser — auto-detects delimiter (tab or comma), handles quoted fields
+function parseCSVRow(line,delim){
+  if(delim==='\t'){return line.split('\t').map(function(f){return f.replace(/^"|"$/g,'').trim();});}
+  var result=[],field='',inQ=false;
+  for(var i=0;i<line.length;i++){
+    var c=line[i];
+    if(inQ){if(c==='"'){if(line[i+1]==='"'){field+='"';i++;}else inQ=false;}else field+=c;}
+    else{if(c==='"')inQ=true;else if(c===delim){result.push(field);field='';}else field+=c;}
+  }
+  result.push(field);return result;
+}
+function findHdr(headers,names){
+  for(var n=0;n<names.length;n++){var idx=headers.indexOf(names[n]);if(idx!==-1)return idx;}
+  return -1;
+}
+function parseCSV(text){
+  if(text.charCodeAt(0)===0xFEFF)text=text.slice(1); // strip UTF-8/UTF-16 BOM
+  var lines=text.split(/\r\n|\r|\n/).map(function(l){return l.trim()}).filter(function(l){return l.length>0});
+  if(lines.length<2)return null;
+  // Auto-detect delimiter: count tabs vs commas in the header line
+  var tabCount=(lines[0].match(/\t/g)||[]).length;
+  var commaCount=(lines[0].match(/,/g)||[]).length;
+  var delim=tabCount>commaCount?'\t':',';
+  var headers=parseCSVRow(lines[0],delim).map(function(h){return h.trim().toLowerCase().replace(/['".']/g,'').replace(/\s+/g,' ')});
+  var pnCol=findHdr(headers,['part number','pn','part no','partno','part num']);
+  var descCol=findHdr(headers,['description','desc','name','part name','part description']);
+  var revCol=findHdr(headers,['rev','revision','rev level','revision level']);
+  var qtyCol=findHdr(headers,['qty','quantity','amount','count']);
+  var uomCol=findHdr(headers,['uom','unit','units','unit of measure']);
+  var saCol=findHdr(headers,['sub-assembly','subassembly','sub assembly','assembly','parent assembly','parent','sub-category','subcategory','sub category','group','section']);
+  if(pnCol===-1&&descCol===-1)return null;
+  var parts=[];
+  for(var i=1;i<lines.length;i++){
+    var row=parseCSVRow(lines[i],delim);
+    if(!row.length)continue;
+    var pn=pnCol>=0?(row[pnCol]||'').trim():'';
+    var desc=descCol>=0?(row[descCol]||'').trim():'';
+    if(!pn&&!desc)continue;
+    parts.push({pn:pn,desc:desc,rev:revCol>=0?(row[revCol]||'').trim():'',qty:qtyCol>=0?(row[qtyCol]||'').trim():'',uom:uomCol>=0?(row[uomCol]||'').trim():'',sa:saCol>=0?(row[saCol]||'').trim():''});
+  }
+  return parts.length>0?parts:null;
+}
+function compareBOMs(curParts,newParts){
+  var curMap={};
+  curParts.forEach(function(p){if(p.pn)curMap[p.pn]=p;});
+  var newMap={};
+  newParts.forEach(function(p){if(p.pn)newMap[p.pn]=p;});
+  var changed=[],added=[],removed=[];
+  curParts.forEach(function(p){
+    if(!p.pn)return;
+    if(!newMap[p.pn]){removed.push(p);}
+    else{
+      var np=newMap[p.pn],chgs=[];
+      if(np.rev!==p.rev&&(np.rev||p.rev))chgs.push({f:'Rev',from:p.rev,to:np.rev});
+      if(String(np.qty)!==String(p.qty)&&(np.qty||p.qty))chgs.push({f:'Qty',from:p.qty,to:np.qty});
+      if(np.desc.toLowerCase()!==p.desc.toLowerCase()&&(np.desc||p.desc))chgs.push({f:'Description',from:p.desc,to:np.desc});
+      if(np.uom!==p.uom&&(np.uom&&p.uom))chgs.push({f:'UOM',from:p.uom,to:np.uom});
+      if(chgs.length)changed.push({part:p,newPart:np,changes:chgs});
+    }
+  });
+  newParts.forEach(function(p){if(p.pn&&!curMap[p.pn])added.push(p);});
+  return{changed:changed,added:added,removed:removed};
+}
+
+function groupedRows(items,cols,getKey,renderRow){
+  var hasSA=items.some(function(item){return getKey(item);});
+  if(!hasSA)return items.map(renderRow).join('');
+  var groups={},order=[];
+  items.forEach(function(item){
+    var key=getKey(item)||'Other';
+    if(!groups[key]){groups[key]=[];order.push(key);}
+    groups[key].push(item);
+  });
+  var out='';
+  order.forEach(function(key){
+    out+='<tr class="diff-group-hdr"><td colspan="'+cols+'">'+esc(key)+'</td></tr>';
+    out+=groups[key].map(renderRow).join('');
+  });
+  return out;
+}
+
+function getStats(){
+  var t=0,c=0,fn=0,tm=0,ps={};
+  TABS.forEach(function(s){
+    var p=BOM[s],sT=p.length,sC=0,sN=0;
+    p.forEach(function(_,i){var key=k(s,i);if(checks[key]===true)sC++;if(flags[key]==='not_needed')sN++});
+    var mc=(missingParts[s]||[]).length;
+    t+=sT;c+=sC;fn+=sN;tm+=mc;
+    ps[s]={total:sT,checked:sC,notNeeded:sN,missingCount:mc};
+  });
+  return{total:t,checked:c,flagNotNeeded:fn,totalMissing:tm,perSection:ps};
+}
+
+function render(){
+  if(!dbReady)return;
+  var nav='<div class="view-nav"><button class="view-nav-btn '+(curView==='validation'?'active':'')+'" onclick="switchView(\'validation\')">BOM Validation</button><button class="view-nav-btn '+(curView==='comparison'?'active':'')+'" onclick="switchView(\'comparison\')">BOM Comparison</button></div>';
+  if(curView==='comparison'){document.getElementById('app').innerHTML=nav+renderComparison();return;}
+  var st=getStats(),pct=st.total>0?Math.round(st.checked/st.total*100):0;
+  var cs=st.perSection[TABS[curTab]]||{};
+  var parts=BOM[TABS[curTab]];
+  var curMissing=missingParts[TABS[curTab]]||[];
+  var curShowAdd=!!showAddForm[TABS[curTab]];
+
+  var flaggedItems=[];
+  TABS.forEach(function(s){BOM[s].forEach(function(p,i){var key=k(s,i);if(flags[key]==='not_needed')flaggedItems.push({i:p.i,pn:p.pn,desc:p.desc,section:s,note:notes[key]||''})})});
+  var allMissing=[];
+  TABS.forEach(function(s){(missingParts[s]||[]).forEach(function(p){allMissing.push({pn:p.pn,desc:p.desc,qty:p.qty,note:p.note,section:s})})});
+
+  var h=nav+'<div class="header"><div class="header-top"><div><h1>990-00003-C.0 BOM Validation</h1><p class="sub">Rev B → Rev C Transition Build Checklist</p></div>';
+  h+='<div class="pct-wrap"><div><div class="pct-num">'+pct+'%</div><div class="pct-label">'+st.checked+'/'+st.total+' parts verified</div></div>';
+  h+='<div class="ring" style="background:conic-gradient(#22c55e '+pct*3.6+'deg,rgba(255,255,255,.1) 0)"><div class="ring-inner">'+st.checked+'</div></div></div></div>';
+  h+='<div class="quick-stats"><span class="stat-badge stat-ok">✅ '+st.checked+' verified</span><span class="stat-badge stat-warn">⚠️ '+st.flagNotNeeded+' not needed</span>';
+  h+='<span class="stat-badge stat-miss">❌ '+st.totalMissing+' missing from BOM</span>';
+  h+='<button class="summary-btn" onclick="toggleSummary()">'+(showSummary?'Hide':'Show')+' Summary</button></div></div>';
+
+  h+='<div class="summary-panel '+(showSummary?'open':'')+'"><h3>Validation Summary</h3>';
+  if(flaggedItems.length>0){
+    h+='<h4 style="color:#ca8a04">⚠️ Parts on BOM But Not Needed ('+flaggedItems.length+')</h4><table class="s-table"><thead><tr style="background:#fefce8"><th>Item</th><th>Part Number</th><th>Description</th><th>Sub-Assembly</th><th>Notes</th></tr></thead><tbody>';
+    flaggedItems.forEach(function(it,i){h+='<tr style="background:'+(i%2?'#fffbeb':'#fff')+'"><td style="font-family:monospace">'+esc(it.i)+'</td><td style="font-weight:600">'+esc(it.pn)+'</td><td>'+esc(it.desc)+'</td><td style="font-size:11px">'+esc(it.section.split('(')[0].trim())+'</td><td style="'+(it.note?'':'font-style:italic;color:#94a3b8')+'">'+(it.note?esc(it.note):'—')+'</td></tr>'});
+    h+='</tbody></table>';
+  }
+  if(allMissing.length>0){
+    h+='<h4 style="color:#dc2626">❌ Parts Needed But Missing from BOM ('+allMissing.length+')</h4><table class="s-table"><thead><tr style="background:#fef2f2"><th>Part Number</th><th>Description</th><th>Qty</th><th>Sub-Assembly</th><th>Notes</th></tr></thead><tbody>';
+    allMissing.forEach(function(it,i){h+='<tr style="background:'+(i%2?'#fef2f2':'#fff')+'"><td style="font-weight:600">'+(it.pn?esc(it.pn):'—')+'</td><td>'+esc(it.desc)+'</td><td>'+(it.qty||'—')+'</td><td style="font-size:11px">'+esc(it.section.split('(')[0].trim())+'</td><td style="'+(it.note?'':'font-style:italic;color:#94a3b8')+'">'+(it.note?esc(it.note):'—')+'</td></tr>'});
+    h+='</tbody></table>';
+  }
+  if(!flaggedItems.length&&!allMissing.length)h+='<p class="empty-summary">No flagged or missing items yet.</p>';
+  h+='</div>';
+
+  h+='<div class="tabs">';
+  TABS.forEach(function(t,i){
+    var s=st.perSection[t]||{},done=s.total>0&&s.checked===s.total,issues=s.notNeeded>0||s.missingCount>0;
+    h+='<button class="tab-btn '+(i===curTab?'active':'')+'" onclick="switchTab('+i+')">'+(done&&!issues?'✅ ':issues?'🔶 ':'')+esc(t.split('(')[0].trim())+'<span class="tab-count">'+(s.checked||0)+'/'+(s.total||0)+(s.missingCount>0?' +'+s.missingCount+' missing':'')+'</span></button>';
+  });
+  h+='</div>';
+
+  var secPct=cs.total?Math.round(cs.checked/cs.total*100):0;
+  h+='<div class="sec-header"><h2>'+esc(TABS[curTab])+'</h2><div class="prog-bar-wrap"><div class="prog-bar"><div class="prog-fill" style="width:'+secPct+'%;background:'+(cs.checked===cs.total&&cs.total>0?'#22c55e':'#3b82f6')+'"></div></div><span class="prog-label">'+secPct+'%</span></div>';
+  if(TABS[curTab].indexOf('x3')!==-1)h+='<div class="x3-note">ℹ️ This sub-assembly is built <strong>3 times</strong>. Quantities shown are per unit.</div>';
+  h+='</div>';
+
+  h+='<div class="search-bar"><div class="search-wrap"><span class="search-icon">🔍</span><input id="searchInput" type="text" placeholder="Search by part number, description, or item number..." value="'+esc(searchQuery)+'" oninput="updateSearch(this.value)">';
+  if(searchQuery)h+='<button class="search-clear" onclick="clearSearch()">✕</button>';
+  h+='</div></div>';
+
+  var matchCount=0,totalParts=parts.length;
+  h+='<div class="parts-list">';
+  parts.forEach(function(p,idx){
+    var key=k(TABS[curTab],idx),checked=checks[key]===true,flag=flags[key]||null,note=notes[key]||'';
+    var bg=flag==='not_needed'?'#fefce8':checked?'#f0fdf4':'#fff';
+    var safeKey=key.replace(/'/g,"\\'");
+    var hidden=false;
+    if(searchQuery){
+      var haystack=(p.pn+' '+p.desc+' '+p.i).toLowerCase();
+      hidden=haystack.indexOf(searchQuery)===-1;
+    }
+    if(!hidden)matchCount++;
+    h+='<div class="part-row'+(hidden?' search-hidden':'')+'" style="background:'+bg+'"><div class="part-main">';
+    h+='<div class="chk '+(checked?'on':'')+'" onclick="toggleCheck(\''+safeKey+'\')">'+(checked?'✓':'')+'</div>';
+    h+='<div class="part-info"><div class="part-desc">'+esc(p.desc)+'</div><div class="part-meta"><span class="part-item">'+esc(p.i)+'</span><span class="part-pn">'+esc(p.pn)+'</span><span class="part-rev">Rev '+esc(p.rev)+'</span></div></div>';
+    h+='<div class="part-qty"><div class="part-qty-num">'+p.qty+'</div><div class="part-qty-uom">'+esc(p.uom)+'</div></div>';
+    h+='<div class="part-actions"><button class="flag-btn '+(flag==='not_needed'?'on':'')+'" onclick="toggleFlag(\''+safeKey+'\')">⚠️ Not Needed</button>';
+    h+='<button class="note-btn '+(note?'on':'')+'" onclick="toggleNoteArea(\''+safeKey+'\')">📝</button></div></div>';
+    h+='<div class="note-area" id="n_'+key+'"><input type="text" placeholder="Add note..." value="'+esc(note)+'" onchange="setNote(\''+safeKey+'\',this.value)"></div></div>';
+  });
+  h+='</div>';
+  if(searchQuery){h+='<div class="search-count">Showing '+matchCount+' of '+totalParts+' parts'+(matchCount===0?' — try a different search':'')+'</div>'}
+
+  var tabKey=TABS[curTab].replace(/'/g,"\\'");
+  h+='<div class="missing-section">';
+  curMissing.forEach(function(mp){
+    h+='<div class="missing-card"><span style="font-size:16px">❌</span><div style="flex:1;min-width:0"><div class="m-desc">'+esc(mp.desc)+'</div><div class="m-meta">'+(mp.pn?'<span style="color:#b91c1c">'+esc(mp.pn)+'</span>':'')+(mp.qty?'<span style="color:#dc2626">Qty: '+esc(mp.qty)+'</span>':'')+(mp.note?'<span style="color:#7f1d1d;font-style:italic">'+esc(mp.note)+'</span>':'')+'</div></div>';
+    h+='<button class="remove-btn" onclick="removeMissing(\''+tabKey+'\','+mp.id+')">Remove</button></div>';
+  });
+  h+='<button class="add-missing-btn '+(curShowAdd?'open':'')+'" onclick="toggleAddForm(\''+tabKey+'\')">'+(curShowAdd?'− Cancel':'+ Add Missing Part (not on BOM but needed)')+'</button>';
+  h+='<div class="add-form '+(curShowAdd?'open':'')+'"><div class="form-label">Add a part needed during build but not listed on the BOM:</div>';
+  h+='<div class="form-grid"><input id="mp_pn" type="text" placeholder="Part Number (if known)"><input id="mp_desc" type="text" placeholder="Description *">';
+  h+='<input id="mp_qty" type="text" placeholder="Qty"><input id="mp_note" type="text" placeholder="Note (optional)"></div>';
+  h+='<button class="submit-btn" onclick="addMissing()">Add Missing Part</button></div></div>';
+
+  document.getElementById('app').innerHTML=h;
+}
+
+function renderComparison(){
+  var h='<div style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:20px 24px">';
+  h+='<h1 style="font-size:20px;font-weight:700">BOM Comparison</h1>';
+  h+='<p style="font-size:13px;opacity:.8;margin-top:4px">Upload two BOMs as CSV files to identify added, removed, and changed parts</p></div>';
+  h+='<div class="comp-wrap">';
+  h+='<div class="comp-hint"><strong>How to use</strong>';
+  h+='Supports CSV and tab-delimited (TSV) exports — delimiter is auto-detected. Recognized columns: <em>Part Number</em>, <em>Description</em>, <em>Rev</em>, <em>Qty</em>, <em>UOM</em>. Parts are matched and compared by part number.</div>';
+
+  // Upload cards
+  h+='<div class="comp-upload-row">';
+  // Current BOM card
+  h+='<div class="upload-card'+(bomCurrent?' loaded':'')+'"><div class="file-icon">'+(bomCurrent?'✅':'📄')+'</div><h3>Current BOM</h3>';
+  if(bomCurrent){h+='<div class="upload-loaded-name">'+esc(compCurrentName)+'</div><div class="upload-loaded-count">'+bomCurrent.length+' parts loaded</div>';}
+  else{h+='<p class="up-sub">The baseline / existing BOM</p>';}
+  h+='<input type="file" id="fc_inp" accept=".csv,.txt" style="display:none" onchange="handleFileUpload(\'current\',this)">';
+  h+='<button class="upload-file-btn" onclick="document.getElementById(\'fc_inp\').click()">'+(bomCurrent?'Replace File':'Choose CSV File')+'</button></div>';
+  // New BOM card
+  h+='<div class="upload-card'+(bomNew?' loaded':'')+'"><div class="file-icon">'+(bomNew?'✅':'📄')+'</div><h3>New BOM</h3>';
+  if(bomNew){h+='<div class="upload-loaded-name">'+esc(compNewName)+'</div><div class="upload-loaded-count">'+bomNew.length+' parts loaded</div>';}
+  else{h+='<p class="up-sub">The updated / new revision BOM</p>';}
+  h+='<input type="file" id="fn_inp" accept=".csv,.txt" style="display:none" onchange="handleFileUpload(\'new\',this)">';
+  h+='<button class="upload-file-btn" onclick="document.getElementById(\'fn_inp\').click()">'+(bomNew?'Replace File':'Choose CSV File')+'</button></div>';
+  h+='</div>'; // end comp-upload-row
+
+  // Action row
+  h+='<div class="comp-action-row">';
+  h+='<button class="compare-btn"'+(bomCurrent&&bomNew?'':' disabled')+' onclick="runComparison()">Compare BOMs</button>';
+  if(bomCurrent||bomNew)h+='<button class="clear-comp-btn" onclick="clearComparison()">Clear All</button>';
+  h+='</div>';
+
+  // Results
+  if(compResult){
+    var r=compResult;
+    var revItems=r.changed.filter(function(item){return item.changes.some(function(c){return c.f==='Rev';});});
+    var qtyItems=r.changed.filter(function(item){return item.changes.some(function(c){return c.f==='Qty';});});
+    var tot=revItems.length+qtyItems.length+r.added.length+r.removed.length;
+    if(tot===0){
+      h+='<div class="no-diff-msg">✅ No differences found — the two BOMs appear identical.</div>';
+    } else {
+      h+='<div class="comp-sum-bar">';
+      h+='<div class="comp-stat cstat-chg"><div class="comp-stat-num">'+revItems.length+'</div><div class="comp-stat-lbl">Rev Changes</div></div>';
+      h+='<div class="comp-stat cstat-chg" style="border-color:#93c5fd;background:#dbeafe;color:#1e40af"><div class="comp-stat-num">'+qtyItems.length+'</div><div class="comp-stat-lbl">Qty Changes</div></div>';
+      h+='<div class="comp-stat cstat-add"><div class="comp-stat-num">'+r.added.length+'</div><div class="comp-stat-lbl">Added</div></div>';
+      h+='<div class="comp-stat cstat-rem"><div class="comp-stat-num">'+r.removed.length+'</div><div class="comp-stat-lbl">Removed</div></div>';
+      h+='</div>';
+      h+=renderDiffPanel('revChanged','🔄 Rev Changes ('+revItems.length+')','diff-chg',revItems,function(items){
+        var t='<table class="diff-table"><thead><tr><th>Part Number</th><th>Description</th><th>Old Rev</th><th>New Rev</th></tr></thead><tbody>';
+        t+=groupedRows(items,4,function(item){return item.part.sa||item.newPart.sa;},function(item){
+          var chg=item.changes.find(function(c){return c.f==='Rev';});
+          return '<tr><td class="diff-pn">'+esc(item.part.pn)+'</td><td>'+esc(item.part.desc||item.newPart.desc||'')+'</td>'
+            +'<td><span class="chg-from">'+(chg&&chg.from?esc(chg.from):'—')+'</span></td>'
+            +'<td><span class="chg-to">'+(chg&&chg.to?esc(chg.to):'—')+'</span></td></tr>';
+        });
+        t+='</tbody></table>';return t;
+      });
+      h+=renderDiffPanel('qtyChanged','🔢 Qty Changes ('+qtyItems.length+')','diff-chg',qtyItems,function(items){
+        var t='<table class="diff-table"><thead><tr><th>Part Number</th><th>Description</th><th>Old Qty</th><th>New Qty</th></tr></thead><tbody>';
+        t+=groupedRows(items,4,function(item){return item.part.sa||item.newPart.sa;},function(item){
+          var chg=item.changes.find(function(c){return c.f==='Qty';});
+          return '<tr><td class="diff-pn">'+esc(item.part.pn)+'</td><td>'+esc(item.part.desc||item.newPart.desc||'')+'</td>'
+            +'<td><span class="chg-from">'+(chg&&chg.from?esc(chg.from):'—')+'</span></td>'
+            +'<td><span class="chg-to">'+(chg&&chg.to?esc(chg.to):'—')+'</span></td></tr>';
+        });
+        t+='</tbody></table>';return t;
+      });
+      h+=renderDiffPanel('added','✅ Added Parts ('+r.added.length+')','diff-add',r.added,function(items){
+        var t='<table class="diff-table"><thead><tr><th>Part Number</th><th>Description</th><th>Rev</th><th>Qty</th><th>UOM</th></tr></thead><tbody>';
+        t+=groupedRows(items,5,function(p){return p.sa;},function(p){
+          return '<tr><td class="diff-pn">'+esc(p.pn)+'</td><td>'+esc(p.desc)+'</td><td>'+esc(p.rev)+'</td><td>'+esc(p.qty)+'</td><td>'+esc(p.uom)+'</td></tr>';
+        });
+        t+='</tbody></table>';return t;
+      });
+      h+=renderDiffPanel('removed','❌ Removed Parts ('+r.removed.length+')','diff-rem',r.removed,function(items){
+        var t='<table class="diff-table"><thead><tr><th>Part Number</th><th>Description</th><th>Rev</th><th>Qty</th><th>UOM</th></tr></thead><tbody>';
+        t+=groupedRows(items,5,function(p){return p.sa;},function(p){
+          return '<tr><td class="diff-pn">'+esc(p.pn)+'</td><td>'+esc(p.desc)+'</td><td>'+esc(p.rev)+'</td><td>'+esc(p.qty)+'</td><td>'+esc(p.uom)+'</td></tr>';
+        });
+        t+='</tbody></table>';return t;
+      });
+      h+='<div class="download-row"><button class="download-btn" onclick="downloadCompCSV()">⬇ Download Change Document (.csv)</button></div>';
+    }
+  }
+  h+='</div>'; // end comp-wrap
+  return h;
+}
+
+function renderDiffPanel(key,title,cssClass,items,tableRenderer){
+  var open=openDiffPanels[key];
+  var safeKey=key.replace(/'/g,"\\'");
+  var h='<div class="diff-panel '+cssClass+'">';
+  h+='<div class="diff-panel-hdr" onclick="toggleDiffPanel(\''+safeKey+'\')">';
+  h+='<span class="diff-panel-title">'+title+'</span>';
+  h+='<span class="diff-toggle">'+(open?'▲ Collapse':'▼ Expand')+'</span></div>';
+  if(open){
+    if(items.length===0)h+='<div class="diff-empty">None</div>';
+    else h+=tableRenderer(items);
+  }
+  h+='</div>';
+  return h;
+}
+</script>
+</body>
+</html>
