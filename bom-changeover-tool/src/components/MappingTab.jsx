@@ -138,6 +138,7 @@ function MappingSection({ title, color, items, edits, onUpdate }) {
 // ── Main export ───────────────────────────────────────────────────────
 
 export function MappingTab({ diff, mappingEdits, onUpdate }) {
+  const [searchQuery, setSearchQuery] = useState('');
   const locStr = locs => locs.map(l => l.itemNo).join(', ');
 
   const sections = [
@@ -189,16 +190,51 @@ export function MappingTab({ diff, mappingEdits, onUpdate }) {
     },
   ].filter(s => s.items.length > 0);
 
+  const q = searchQuery.trim().toLowerCase();
+  const visibleSections = sections.map(s => ({
+    ...s,
+    items: q
+      ? s.items.filter(i => `${i.oldPN} ${i.newPN} ${i.desc} ${i.cat}`.toLowerCase().includes(q))
+      : s.items,
+  })).filter(s => s.items.length > 0);
+
   return (
     <div>
       <p style={{ fontSize: 11, color: T.textMid, margin: '0 0 16px', lineHeight: 1.5 }}>
         Review each change. Fill in compatibility, justification, and alternates.
         Set status to <strong>Confirmed</strong> when reviewed.
       </p>
-      <div style={{ padding: '8px 12px', background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, marginBottom: 20, fontSize: 10, color: T.textMid }}>
+      <div style={{ padding: '8px 12px', background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, marginBottom: 16, fontSize: 10, color: T.textMid }}>
         <strong>Note: </strong>Rev Changed includes sub-assemblies. Moved = parent sub-assy rev-changed.
       </div>
-      {sections.map(s => (
+
+      {/* Search */}
+      <div style={{ position: 'relative', marginBottom: 20 }}>
+        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search by part number or description across all sections..."
+          style={{
+            width: '100%', padding: '8px 10px 8px 32px', boxSizing: 'border-box',
+            border: `1px solid ${T.border}`, borderRadius: 6,
+            background: T.card, color: T.text, fontSize: 12, fontFamily: 'inherit',
+          }}
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} style={{
+            position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: T.textSoft, fontSize: 14,
+          }}>✕</button>
+        )}
+      </div>
+
+      {q && visibleSections.length === 0 && (
+        <div style={{ textAlign: 'center', padding: 40, color: T.textSoft, fontSize: 12 }}>No parts match "{searchQuery}"</div>
+      )}
+
+      {visibleSections.map(s => (
         <MappingSection key={s.title} {...s} edits={mappingEdits} onUpdate={onUpdate} />
       ))}
     </div>
