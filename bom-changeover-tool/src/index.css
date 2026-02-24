@@ -23,6 +23,8 @@ input, select, textarea { font-family: inherit; }
 
 ::selection { background: rgba(180,131,14,.2); }
 
+::placeholder { color: #C0C0CC; opacity: 1; }
+
 input:focus, select:focus, textarea:focus {
   outline: 2px solid #B4830E;
   outline-offset: -1px;
