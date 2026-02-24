@@ -1,0 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; width: 100%; }
+
+body {
+  background: #F4F4F6;
+  color: #23232B;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #EDEDF0; }
+::-webkit-scrollbar-thumb { background: #C8C8D0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #A0A0AC; }
+
+::selection { background: rgba(180,131,14,.2); }
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid #B4830E;
+  outline-offset: -1px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}

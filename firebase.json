@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "public",
+    "public": "bom-changeover-tool/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
