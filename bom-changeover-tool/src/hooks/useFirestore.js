@@ -17,7 +17,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const DOC_PATH  = 'changeovers/current';
@@ -87,5 +87,21 @@ export function useFirestore() {
     }, DEBOUNCE_MS);
   }, []);
 
-  return { subscribe, save, loading, saving };
+  /**
+   * Clear the Firestore document entirely.
+   * Broadcasts hasResults: false to all connected clients via their snapshot listeners.
+   */
+  const clear = useCallback(async () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    const savedAt = Date.now();
+    lastSavedAt.current = savedAt;
+    try {
+      await setDoc(doc(db, DOC_PATH), { hasResults: false, _savedAt: savedAt });
+    } catch (err) {
+      console.error('[Firestore] clear error:', err);
+    }
+  }, []);
+
+  return { subscribe, save, clear, loading, saving };
 }

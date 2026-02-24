@@ -30,9 +30,10 @@ export default function App() {
   const [notes,         setNotes]         = useState({});
   const [missingParts,  setMissingParts]  = useState({});
   const [mappingEdits,  setMappingEdits]  = useState({});
-  const [phaseChecks,   setPhaseChecks]   = useState({});
+  const [phaseChecks,       setPhaseChecks]       = useState({});
+  const [showClearConfirm,  setShowClearConfirm]  = useState(false);
 
-  const { subscribe, save, loading, saving } = useFirestore();
+  const { subscribe, save, clear, loading, saving } = useFirestore();
 
   const diff = useMemo(
     () => (hasResults && oldRows.length && newRows.length ? diffBOMs(oldRows, newRows) : null),
@@ -156,6 +157,17 @@ export default function App() {
   const handlePhaseToggle = useCallback((itemId) => {
     setPhaseChecks(prev => { const next = { ...prev, [itemId]: !prev[itemId] }; persistState({ phaseChecks: next }); return next; });
   }, [persistState]);
+
+  const handleClearProject = useCallback(async () => {
+    setOldRows([]); setNewRows([]);
+    setOldFileName(''); setNewFileName('');
+    setMetadata(EMPTY_META);
+    setMappingEdits({}); setChecks({}); setFlags({});
+    setNotes({}); setMissingParts({}); setPhaseChecks({});
+    setHasResults(false);
+    setShowClearConfirm(false);
+    await clear();
+  }, [clear]);
   const tabs = diff ? [
     { id: 'mapping',    label: 'Part Mapping',         badge: diff.changed.length + diff.added.length + diff.removed.length },
     { id: 'validation', label: 'Build Validation',     badge: newSections.reduce((s, sec) => s + sec.parts.length, 0) },
@@ -167,6 +179,27 @@ export default function App() {
   return (
     <div style={{ background: T.bg, minHeight: '100vh' }}>
       <Header saving={saving} metadata={metadata} oldFileName={oldFileName} newFileName={newFileName} />
+
+      {showClearConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: T.card, border: '1px solid ' + T.border, borderRadius: 10, padding: '28px 32px', maxWidth: 400, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 8 }}>Clear project?</div>
+            <div style={{ fontSize: 12, color: T.textMid, marginBottom: 24, lineHeight: 1.6 }}>
+              This will permanently delete all uploaded BOMs, mapping reviews, validation progress, and checklist state for all users. This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                style={{ background: 'none', border: '1px solid ' + T.border, borderRadius: 6, color: T.textMid, padding: '7px 16px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}
+              >Cancel</button>
+              <button
+                onClick={handleClearProject}
+                style={{ background: T.red, border: 'none', borderRadius: 6, color: '#fff', padding: '7px 16px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
+              >Yes, clear everything</button>
+            </div>
+          </div>
+        </div>
+      )}
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '28px 24px' }}>
 
         {loading && (
@@ -187,10 +220,16 @@ export default function App() {
           <>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <button
-                  onClick={() => setHasResults(false)}
-                  style={{ background: 'none', border: '1px solid ' + T.border, borderRadius: 5, color: T.textMid, padding: '4px 10px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8, display: 'block' }}
-                >Back to Upload</button>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  <button
+                    onClick={() => setHasResults(false)}
+                    style={{ background: 'none', border: '1px solid ' + T.border, borderRadius: 5, color: T.textMid, padding: '4px 10px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >Back to Upload</button>
+                  <button
+                    onClick={() => setShowClearConfirm(true)}
+                    style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: 5, color: T.red, padding: '4px 10px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >Clear Project</button>
+                </div>
                 <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', margin: 0, color: T.text }}>
                   {metadata.product || 'BOM'}: {metadata.oldRev || '?'} to {metadata.newRev || '?'}
                 </h1>
