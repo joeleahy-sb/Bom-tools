@@ -1,6 +1,6 @@
 import { T } from '../../theme';
 
-export function Header({ saving, metadata, oldFileName, newFileName }) {
+export function Header({ saving, metadata, oldFileName, newFileName, user, onLogout }) {
   return (
     <header style={{
       borderBottom: `1px solid ${T.border}`,
@@ -44,6 +44,18 @@ export function Header({ saving, metadata, oldFileName, newFileName }) {
         )}
         {saving && (
           <span style={{ color: T.textFaint, fontSize: 9, fontStyle: 'italic' }}>saving…</span>
+        )}
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderLeft: '1px solid ' + T.border, paddingLeft: 16 }}>
+            {user.photoURL && (
+              <img src={user.photoURL} alt="" style={{ width: 22, height: 22, borderRadius: '50%' }} />
+            )}
+            <span style={{ color: T.textMid, fontSize: 10 }}>{user.email}</span>
+            <button
+              onClick={onLogout}
+              style={{ background: 'none', border: '1px solid ' + T.border, borderRadius: 4, color: T.textSoft, padding: '3px 8px', fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+            >Sign out</button>
+          </div>
         )}
       </div>
     </header>

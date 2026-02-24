@@ -26,6 +26,7 @@ This tool covers all four steps in a single shared workspace. Any team member wh
 | UI framework | React 19 (with Vite) |
 | Styling | Inline styles using shared design tokens (`theme.js`) |
 | Font | JetBrains Mono — optimized for P/N readability |
+| Auth | Firebase Authentication (Google Sign-In) |
 | Database / real-time sync | Firebase Firestore (`onSnapshot` listener) |
 | Hosting | Firebase Hosting |
 | Build tool | Vite 7 |
@@ -53,14 +54,16 @@ bom-changeover-tool/
     │   └── buildChecklist.js       # Generates the 8-phase changeover checklist
     │
     ├── hooks/
+    │   ├── useAuth.js              # Google Sign-In auth state + domain enforcement
     │   ├── useFirestore.js         # Real-time Firestore subscribe + debounced save
     │   └── useValidation.js        # partKey helper + validation progress stats
     │
     └── components/
         ├── common/
-        │   ├── Header.jsx          # Sticky top bar with file names + saving indicator
+        │   ├── Header.jsx          # Sticky top bar with user info, sign-out, saving indicator
         │   ├── TabNav.jsx          # Tab switcher with badge counts
         │   └── DropZone.jsx        # Drag-and-drop file upload zone
+        ├── LoginScreen.jsx         # Google Sign-In screen (shown when unauthenticated)
         ├── UploadView.jsx          # Initial upload screen + metadata form
         ├── MappingTab.jsx          # Part Mapping review table
         ├── ValidationTab.jsx       # Build Validation checklist
@@ -72,6 +75,9 @@ bom-changeover-tool/
 ---
 
 ## User Flow
+
+### 0. Sign In
+Users must sign in with a `@standardbots.com` Google account. The login screen shows a **Sign in with Google** button. The Google sign-in popup is pre-filtered to the standardbots.com domain. Any attempt to sign in with a non-standardbots.com account is rejected immediately. The signed-in user's avatar, email, and a **Sign out** button appear in the top-right of the header.
 
 ### 1. Upload
 Drag and drop (or click to browse) two BOM files — old revision and new revision. Supported formats: `.csv`, `.tsv`, `.txt`. Fill in optional metadata (product name, revisions, target date) then click **Generate** to run the diff and open the tabs.
@@ -193,6 +199,22 @@ Parts are matched using `fullPN` (P/N + rev as one string). The diff produces:
 
 **Moved part detection:** For each unchanged part, checks whether its parent sub-assembly appears in the `changed` list. If so, the part is flagged as "moved."
 
+### Authentication (`hooks/useAuth.js`)
+
+Authentication is handled via Firebase Auth with Google Sign-In.
+
+```
+useAuth.js
+  onAuthStateChanged  →  sets user state (undefined = loading, null = signed out)
+  signInWithPopup     →  Google OAuth popup, pre-filtered to standardbots.com
+  domain check        →  signs out + shows error if email ∉ @standardbots.com
+```
+
+The `hd: 'standardbots.com'` parameter hints to Google to pre-select the right account in the popup. Domain enforcement happens in two places:
+
+1. **Client-side** (`useAuth.js`): `onAuthStateChanged` checks `user.email.endsWith('@standardbots.com')` and immediately calls `signOut` if not matching
+2. **Server-side** (`firestore.rules`): Firestore rejects all reads/writes unless `request.auth.token.email` matches `.*@standardbots\.com` and the email is verified
+
 ### Theme (`theme.js`)
 
 All colors and semantic tokens are exported as `T`:
@@ -265,6 +287,18 @@ The Firestore path is hardcoded as `changeovers/current` in `src/hooks/useFirest
 ## Firebase Notes
 
 - **Firestore document:** `changeovers/current` — one document holds the entire app state
-- **Firestore rules:** Currently open. Before wider deployment, add read/write restrictions in the Firebase Console → Firestore → Rules
-- **API key:** The config in `src/firebase.js` is intentionally client-side — this is standard for Firebase web apps. Security is enforced by Firestore rules, not by hiding the key
+- **Firestore rules:** Defined in `firestore.rules` at the repo root. Deployed alongside the app via `firebase deploy`. Only authenticated `@standardbots.com` users with a verified email can read or write
+- **API key:** The config in `src/firebase.js` is intentionally client-side — this is standard for Firebase web apps. Security is enforced by Firestore rules and Auth, not by hiding the key
 - **Read/write volume:** Each client holds one persistent `onSnapshot` subscription (one read). Writes are debounced to at most one per 800ms of user activity
+- **Adding a new user:** No action needed — any person with a `@standardbots.com` Google account can sign in automatically. Access is domain-based, not user-by-user
+- **Revoking access:** Remove the user from your Google Workspace org, or restrict the Firebase Auth sign-in method in the Firebase Console
+
+## Firebase Console Setup
+
+When deploying to a new Firebase project, one manual step is required:
+
+1. Go to **Firebase Console → Authentication → Sign-in method**
+2. Enable **Google** as a sign-in provider
+3. Save
+
+Everything else (Firestore rules, hosting) is fully managed by `firebase deploy`.

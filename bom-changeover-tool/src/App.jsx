@@ -5,7 +5,9 @@ import { diffBOMs } from './utils/bomDiff';
 import { exportMappingCSV } from './utils/bomExport';
 import { partKey } from './hooks/useValidation';
 import { useFirestore } from './hooks/useFirestore';
+import { useAuth }     from './hooks/useAuth';
 
+import { LoginScreen }         from './components/LoginScreen';
 import { Header }              from './components/common/Header';
 import { TabNav }              from './components/common/TabNav';
 import { UploadView }          from './components/UploadView';
@@ -33,6 +35,7 @@ export default function App() {
   const [phaseChecks,       setPhaseChecks]       = useState({});
   const [showClearConfirm,  setShowClearConfirm]  = useState(false);
 
+  const { user, login, logout, authError, loading: authLoading } = useAuth();
   const { subscribe, save, clear, loading, saving } = useFirestore();
 
   const diff = useMemo(
@@ -176,9 +179,17 @@ export default function App() {
     { id: 'sourcing',   label: 'Sourcing Impact' },
   ] : [];
 
+  if (authLoading) {
+    return <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textSoft, fontSize: 13 }}>Loading…</div>;
+  }
+
+  if (!user) {
+    return <LoginScreen onLogin={login} error={authError} />;
+  }
+
   return (
     <div style={{ background: T.bg, minHeight: '100vh' }}>
-      <Header saving={saving} metadata={metadata} oldFileName={oldFileName} newFileName={newFileName} />
+      <Header saving={saving} metadata={metadata} oldFileName={oldFileName} newFileName={newFileName} user={user} onLogout={logout} />
 
       {showClearConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
