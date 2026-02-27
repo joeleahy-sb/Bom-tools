@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { T } from './theme';
 import { readBOMFile, parseBOMSections } from './utils/bomParser';
 import { diffBOMs } from './utils/bomDiff';
@@ -38,6 +38,11 @@ export default function App() {
   const { user, login, logout, authError, loading: authLoading } = useAuth();
   const { subscribe, save, clear, loading, saving } = useFirestore();
 
+  // Prevents persistState from writing to Firestore before the initial
+  // snapshot has been received. Stops cold-start races from overwriting
+  // live data with empty initial state.
+  const dataReadyRef = useRef(false);
+
   const diff = useMemo(
     () => (hasResults && oldRows.length && newRows.length ? diffBOMs(oldRows, newRows) : null),
     [oldRows, newRows, hasResults]
@@ -52,6 +57,7 @@ export default function App() {
   useEffect(() => {
     if (!user) return; // wait for auth before touching Firestore
     const unsub = subscribe((data) => {
+      dataReadyRef.current = true; // Firestore data received — safe to write
       if (data.oldRows)                setOldRows(data.oldRows);
       if (data.newRows)                setNewRows(data.newRows);
       if (data.oldFileName)            setOldFileName(data.oldFileName);
@@ -69,6 +75,7 @@ export default function App() {
   }, [user, subscribe]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const persistState = useCallback((patch = {}) => {
+    if (!dataReadyRef.current) return; // don't write until Firestore data is loaded
     save({
       oldRows, newRows, oldFileName, newFileName,
       metadata, mappingEdits, checks, flags, notes,
@@ -101,6 +108,7 @@ export default function App() {
   }, []);
 
   const handleRun = useCallback(() => {
+    dataReadyRef.current = true; // user is intentionally starting a new project
     const d = diffBOMs(oldRows, newRows);
     const edits = {};
     [...d.changed.map(i => i.newFullPN), ...d.added.map(i => i.fullPN),
