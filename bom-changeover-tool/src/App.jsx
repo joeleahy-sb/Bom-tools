@@ -47,8 +47,10 @@ export default function App() {
     [newRows]
   );
 
-  // Real-time sync — fires on mount (initial load) and whenever any client saves.
+  // Real-time sync — only subscribes after auth has resolved so Firestore
+  // has a valid token. Fires once on sign-in, then on every remote save.
   useEffect(() => {
+    if (!user) return; // wait for auth before touching Firestore
     const unsub = subscribe((data) => {
       if (data.oldRows)                setOldRows(data.oldRows);
       if (data.newRows)                setNewRows(data.newRows);
@@ -63,8 +65,8 @@ export default function App() {
       if (data.phaseChecks)            setPhaseChecks(data.phaseChecks);
       if (data.hasResults !== undefined) setHasResults(data.hasResults);
     });
-    return unsub; // unsubscribe when component unmounts
-  }, [subscribe]); // eslint-disable-line react-hooks/exhaustive-deps
+    return unsub;
+  }, [user, subscribe]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const persistState = useCallback((patch = {}) => {
     save({
@@ -224,6 +226,7 @@ export default function App() {
             onOldFile={handleOldFile} onNewFile={handleNewFile}
             onMetaChange={(k, v) => setMetadata(m => ({ ...m, [k]: v }))}
             onRun={handleRun}
+            onResume={() => setHasResults(true)}
           />
         )}
 
